@@ -67,9 +67,10 @@
                 </div>
               </div>
 
-              <!-- Área de Entrada de Mensaje -->
+              <!-- Área de Entrada de Mensaje con STT -->
               <div class="chat-input p-3 border-top">
-                <form @submit.prevent="sendMessage" class="d-flex gap-2">
+                <!-- Input de texto normal -->
+                <form @submit.prevent="sendMessage" class="d-flex gap-2 mb-2">
                   <input 
                     v-model="newMessage" 
                     type="text" 
@@ -86,6 +87,33 @@
                     Enviar
                   </button>
                 </form>
+                
+                <!-- Nuevo: Controles de Speech-to-Text -->
+                <div class="d-flex gap-2 align-items-center">
+                  <button 
+                    @mousedown="startSpeechRecognition"
+                    @mouseup="stopSpeechRecognition"
+                    @mouseleave="stopSpeechRecognition"
+                    @touchstart="startSpeechRecognition"
+                    @touchend="stopSpeechRecognition"
+                    :disabled="!isConnected"
+                    :class="['btn', 'btn-sm', isListening ? 'btn-danger' : 'btn-outline-primary']"
+                    class="flex-shrink-0"
+                  >
+                    <span v-if="isListening">🔴 Grabando...</span>
+                    <span v-else>🎤 Mantén presionado</span>
+                  </button>
+                  
+                  <!-- Mostrar texto mientras habla -->
+                  <small v-if="interimText" class="text-muted flex-grow-1 fst-italic">
+                    "{{ interimText }}"
+                  </small>
+                  
+                  <!-- Indicador de funcionalidad -->
+                  <small v-if="!isListening && !interimText" class="text-muted flex-grow-1">
+                    Habla para convertir voz a texto
+                  </small>
+                </div>
               </div>
             </div>
           </div>
@@ -267,9 +295,13 @@ export default {
       error: '',
       loading: true,
       
-      // MediaPipe y traducción
+      // MediaPipe y traducción de señas
       isTranslating: false,
-      recentTranslations: []
+      recentTranslations: [],
+      
+      // Speech-to-Text
+      isListening: false,
+      interimText: ''
     }
   },
   async mounted() {
@@ -393,7 +425,64 @@ export default {
       }
     },
 
-    // Métodos de traducción de señas
+    // Métodos de Speech-to-Text
+    async startSpeechRecognition() {
+      if (this.isListening) return
+      
+      try {
+        const { default: speechService } = await import('@/services/speechRecognition')
+        
+        speechService.setCallbacks({
+          onResult: this.handleSpeechResult,
+          onError: this.handleSpeechError,
+          onStart: () => {
+            this.isListening = true
+            this.interimText = ''
+          },
+          onEnd: () => {
+            this.isListening = false
+            this.interimText = ''
+          }
+        })
+        
+        await speechService.startListening()
+        
+      } catch (error) {
+        this.error = 'Error activando micrófono: ' + error.message
+        console.error('Error STT:', error)
+      }
+    },
+
+    stopSpeechRecognition() {
+      if (!this.isListening) return
+      
+      import('@/services/speechRecognition').then(({ default: speechService }) => {
+        speechService.stopListening()
+      })
+    },
+
+    handleSpeechResult(result) {
+      // Mostrar texto intermedio mientras habla
+      if (result.interim) {
+        this.interimText = result.interim
+      }
+      
+      // Cuando termina de hablar, enviar al chat
+      if (result.final && result.final.trim()) {
+        // Agregar indicador de que fue por voz
+        this.newMessage = `🎙️ ${result.final}`
+        this.sendMessage()
+        this.interimText = ''
+      }
+    },
+
+    handleSpeechError(errorMessage) {
+      this.error = 'Error de reconocimiento de voz: ' + errorMessage
+      this.isListening = false
+      this.interimText = ''
+    },
+
+    // Métodos de traducción de señas (sin cambios)
     async toggleSignTranslation() {
       if (this.isTranslating) {
         await this.stopSignTranslation()
@@ -513,6 +602,11 @@ export default {
     },
 
     cleanup() {
+      // Detener reconocimiento de voz
+      if (this.isListening) {
+        this.stopSpeechRecognition()
+      }
+
       // Detener traducción
       if (this.isTranslating) {
         this.stopSignTranslation()
@@ -615,5 +709,14 @@ canvas {
 
 video {
   background-color: #000;
+}
+
+/* Estilos para el botón STT */
+.btn:active {
+  transform: scale(0.95);
+}
+
+.fst-italic {
+  font-style: italic;
 }
 </style>
