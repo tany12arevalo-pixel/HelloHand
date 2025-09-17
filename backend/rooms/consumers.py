@@ -116,6 +116,19 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_webrtc_signal(data)
             elif message_type == 'participant_status':
                 await self.handle_participant_status(data)
+            # NUEVOS: Eventos WebRTC específicos
+            elif message_type == 'webrtc_call_request':
+                await self.handle_webrtc_call_request(data)
+            elif message_type == 'webrtc_call_response':
+                await self.handle_webrtc_call_response(data)
+            elif message_type == 'webrtc_offer':
+                await self.handle_webrtc_offer(data)
+            elif message_type == 'webrtc_answer':
+                await self.handle_webrtc_answer(data)
+            elif message_type == 'webrtc_ice_candidate':
+                await self.handle_webrtc_ice_candidate(data)
+            elif message_type == 'webrtc_call_ended':
+                await self.handle_webrtc_call_ended(data)
             else:
                 logger.warning(f"Tipo de mensaje desconocido: {message_type}")
                 
@@ -203,7 +216,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
     
     async def handle_webrtc_signal(self, data):
         """
-        Manejar señales WebRTC para videollamada
+        Manejar señales WebRTC para videollamada (método original)
         
         Expected data:
         {
@@ -247,6 +260,115 @@ class RoomConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error en señal WebRTC: {e}")
     
+    # NUEVOS MÉTODOS WebRTC ESPECÍFICOS
+    
+    async def handle_webrtc_call_request(self, data):
+        """Manejar solicitud de llamada WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            
+            if target_participant:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_call_request',
+                    'from_participant_id': sender_id
+                })
+                
+        except Exception as e:
+            logger.error(f"Error en solicitud de llamada: {e}")
+    
+    async def handle_webrtc_call_response(self, data):
+        """Manejar respuesta a llamada WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            accepted = data.get('accepted', False)
+            
+            if target_participant:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_call_response',
+                    'from_participant_id': sender_id,
+                    'accepted': accepted
+                })
+                
+        except Exception as e:
+            logger.error(f"Error en respuesta de llamada: {e}")
+    
+    async def handle_webrtc_offer(self, data):
+        """Manejar oferta WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            offer = data.get('offer')
+            
+            if target_participant and offer:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_offer',
+                    'from_participant_id': sender_id,
+                    'offer': offer
+                })
+                
+        except Exception as e:
+            logger.error(f"Error en oferta WebRTC: {e}")
+    
+    async def handle_webrtc_answer(self, data):
+        """Manejar respuesta WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            answer = data.get('answer')
+            
+            if target_participant and answer:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_answer',
+                    'from_participant_id': sender_id,
+                    'answer': answer
+                })
+                
+        except Exception as e:
+            logger.error(f"Error en respuesta WebRTC: {e}")
+    
+    async def handle_webrtc_ice_candidate(self, data):
+        """Manejar candidato ICE WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            candidate = data.get('candidate')
+            
+            if target_participant and candidate:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_ice_candidate',
+                    'from_participant_id': sender_id,
+                    'candidate': candidate
+                })
+                
+        except Exception as e:
+            logger.error(f"Error en candidato ICE: {e}")
+    
+    async def handle_webrtc_call_ended(self, data):
+        """Manejar fin de llamada WebRTC"""
+        try:
+            target_participant = data.get('to_participant_id')
+            sender_id = data.get('participant_id', self.participant_id)
+            
+            if target_participant:
+                await self.send_to_participant(target_participant, {
+                    'type': 'webrtc_call_ended',
+                    'from_participant_id': sender_id
+                })
+            else:
+                # Enviar a todos si no hay target específico
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'webrtc_call_ended_broadcast',
+                        'from_participant_id': sender_id
+                    }
+                )
+                
+        except Exception as e:
+            logger.error(f"Error en fin de llamada: {e}")
+    
     async def handle_participant_status(self, data):
         """
         Manejar cambios de estado del participante
@@ -282,6 +404,24 @@ class RoomConsumer(AsyncWebsocketConsumer):
             
         except Exception as e:
             logger.error(f"Error actualizando estado participante: {e}")
+    
+    # MÉTODOS AUXILIARES PARA WebRTC
+    
+    async def send_to_participant(self, participant_id, message_data):
+        """Enviar mensaje a participante específico"""
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'targeted_message',
+                'target_participant_id': participant_id,
+                'message_data': message_data
+            }
+        )
+    
+    async def targeted_message(self, event):
+        """Recibir mensaje dirigido y enviarlo solo si somos el objetivo"""
+        if self.participant_id == event['target_participant_id']:
+            await self.send(text_data=json.dumps(event['message_data']))
     
     # Métodos para recibir mensajes del grupo
     
@@ -341,6 +481,61 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'signal_data': event['signal_data'],
                 'sender_id': event['sender_id']
             }))
+    
+    # NUEVOS: Eventos WebRTC específicos para envío
+    
+    async def webrtc_call_request(self, event):
+        """Solicitud de llamada WebRTC"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_call_request',
+            'from_participant_id': event['from_participant_id']
+        }))
+
+    async def webrtc_call_response(self, event):
+        """Respuesta a llamada WebRTC"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_call_response',
+            'from_participant_id': event['from_participant_id'],
+            'accepted': event['accepted']
+        }))
+
+    async def webrtc_offer(self, event):
+        """Oferta WebRTC"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_offer',
+            'from_participant_id': event['from_participant_id'],
+            'offer': event['offer']
+        }))
+
+    async def webrtc_answer(self, event):
+        """Respuesta WebRTC"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_answer',
+            'from_participant_id': event['from_participant_id'],
+            'answer': event['answer']
+        }))
+
+    async def webrtc_ice_candidate(self, event):
+        """Candidato ICE"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_ice_candidate',
+            'from_participant_id': event['from_participant_id'],
+            'candidate': event['candidate']
+        }))
+
+    async def webrtc_call_ended(self, event):
+        """Llamada terminada"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_call_ended',
+            'from_participant_id': event['from_participant_id']
+        }))
+    
+    async def webrtc_call_ended_broadcast(self, event):
+        """Llamada terminada (broadcast)"""
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_call_ended',
+            'from_participant_id': event['from_participant_id']
+        }))
     
     async def participant_status_update(self, event):
         """Notificar cambio de estado de participante"""

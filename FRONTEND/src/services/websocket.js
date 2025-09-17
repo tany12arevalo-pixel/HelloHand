@@ -24,20 +24,23 @@ class WebSocketService {
         this.participantId = participantId
 
         // URL del WebSocket
-        const wsUrl = `wss://localhost:8021/ws/room/${roomId}/?participant_id=${participantId}`
+        const wsUrl = `wss://192.168.1.88:8021/ws/room/${roomId}/?participant_id=${participantId}`
         
+        console.log('Conectando a WebSocket:', wsUrl)
         this.socket = new WebSocket(wsUrl)
 
         this.socket.onopen = () => {
           console.log(`Conectado a sala ${roomId}`)
           this.isConnected = true
           this.reconnectAttempts = 0
+          this._emit('connected')
           resolve()
         }
 
         this.socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
+            console.log('Mensaje recibido:', data)
             this._handleMessage(data)
           } catch (error) {
             console.error('Error parseando mensaje WebSocket:', error)
@@ -87,9 +90,10 @@ class WebSocketService {
    */
   send(message) {
     if (this.isConnected && this.socket) {
+      console.log('Enviando mensaje WebSocket:', message)
       this.socket.send(JSON.stringify(message))
     } else {
-      console.warn('WebSocket no conectado, no se puede enviar mensaje')
+      console.error('WebSocket no está conectado para enviar:', message)
     }
   }
 
@@ -165,6 +169,37 @@ class WebSocketService {
         this._emit('participant_status_update', data)
         break
 
+      // NUEVOS: Eventos WebRTC específicos
+      case 'webrtc_call_request':
+        console.log('Recibida solicitud de llamada WebRTC:', data)
+        this._emit('webrtc_call_request', data)
+        break
+
+      case 'webrtc_call_response':
+        console.log('Recibida respuesta de llamada WebRTC:', data)
+        this._emit('webrtc_call_response', data)
+        break
+
+      case 'webrtc_offer':
+        console.log('Recibida oferta WebRTC:', data)
+        this._emit('webrtc_offer', data)
+        break
+
+      case 'webrtc_answer':
+        console.log('Recibida respuesta WebRTC:', data)
+        this._emit('webrtc_answer', data)
+        break
+
+      case 'webrtc_ice_candidate':
+        console.log('Recibido candidato ICE:', data)
+        this._emit('webrtc_ice_candidate', data)
+        break
+
+      case 'webrtc_call_ended':
+        console.log('Llamada WebRTC terminada:', data)
+        this._emit('webrtc_call_ended', data)
+        break
+
       case 'error':
         this._emit('error', data)
         console.error('Error del servidor:', data.message)
@@ -172,6 +207,8 @@ class WebSocketService {
 
       default:
         console.log('Mensaje WebSocket no manejado:', data)
+        // Emitir evento genérico para mensajes no reconocidos
+        this._emit(type, data)
     }
   }
 
@@ -230,6 +267,19 @@ class WebSocketService {
       participant_id: this.participantId,
       ...status
     })
+  }
+
+  /**
+   * Obtener estado del servicio
+   * @returns {Object}
+   */
+  getStatus() {
+    return {
+      isConnected: this.isConnected,
+      roomId: this.roomId,
+      participantId: this.participantId,
+      reconnectAttempts: this.reconnectAttempts
+    }
   }
 }
 
