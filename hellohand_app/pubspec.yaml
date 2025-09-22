@@ -43,3 +43,7 @@ flutter:
     - assets/images/
     - assets/images/elements/
     - assets/images/elements/home_screen/
+    - assets/images/elements/Menu conversacion grupal/
+    - assets/images/elements/menu conversacion rapdia/
+    - assets/images/elements/Menu crear conversacion grupal/
+    - assets/images/elements/menu unrise conversacion grupal/

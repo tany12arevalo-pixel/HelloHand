@@ -24,7 +24,7 @@ class WebSocketService {
         this.participantId = participantId
 
         // URL del WebSocket
-        const wsUrl = `wss://192.168.1.88:8021/ws/room/${roomId}/?participant_id=${participantId}`
+        const wsUrl = `wss://10.42.38.177:8021/ws/room/${roomId}/?participant_id=${participantId}`
         
         console.log('Conectando a WebSocket:', wsUrl)
         this.socket = new WebSocket(wsUrl)

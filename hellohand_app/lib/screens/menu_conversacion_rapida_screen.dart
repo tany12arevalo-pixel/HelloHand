@@ -5,20 +5,72 @@ class MenuConversacionRapidaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Conversación Rápida'),
-        backgroundColor: Colors.purple,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/elements/Background_1.png'),
+            fit: BoxFit.cover,
+          ),
         ),
-      ),
-      body: Center(
-        child: Text(
-          'Próximamente',
-          style: TextStyle(
-            fontSize: 24,
-            color: Colors.grey[600],
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(0),
+            child: Column(
+              children: [
+                // Botón Volver al Inicio (arriba)
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: GestureDetector(
+                    onTap: () => context.go('/home'),
+                    child: Image.asset(
+                      'assets/images/elements/boton_volver_al_inicio.png',
+                      height: 150,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+
+                // Contenido centrado
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Botón Crear Conversación Rápida
+                      GestureDetector(
+                        onTap: () {
+                          // TODO: Navegar a crear conversación rápida
+                          print('Crear conversación rápida');
+                        },
+                        child: Image.asset(
+                          'assets/images/elements/menu conversacion rapdia/boton crear conversaison rapida.png',
+                          width: double.infinity,
+                          height: 250,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      
+                      SizedBox(height: 5),
+                      
+                      // Botón Unirse a Conversación Rápida
+                      GestureDetector(
+                        onTap: () {
+                          // TODO: Navegar a unirse a conversación rápida
+                          print('Unirse a conversación rápida');
+                        },
+                        child: Image.asset(
+                          'assets/images/elements/menu conversacion rapdia/boton unirse a conversasion rapida.png',
+                          width: double.infinity,
+                          height: 250,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -9,7 +9,7 @@ SECRET_KEY = 'django-insecure-hellohand-dev-key-change-in-production'
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.137.91', '*']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.137.91', '10.42.38.177','*']
 
 # Application definition
 INSTALLED_APPS = [

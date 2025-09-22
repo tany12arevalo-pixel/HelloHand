@@ -1,4 +1,3 @@
-// lib/services/api_services.dar
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -100,6 +99,29 @@ class ApiService extends ChangeNotifier {
     );
     
     if (response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error ${response.statusCode}: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> joinRoom(String roomId, String participantName) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/rooms/$roomId/join/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode({
+        'name': participantName,
+        'has_camera': true,
+        'has_microphone': true,
+        'is_deaf': false,
+        'is_mute': false,
+      }),
+    );
+    
+    if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
       throw Exception('Error ${response.statusCode}: ${response.body}');
