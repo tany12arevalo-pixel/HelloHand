@@ -1,6 +1,8 @@
+// lib/screens/menu_crear_conversacion_grupal_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class MenuCrearConversacionGrupalScreen extends StatefulWidget {
@@ -169,7 +171,19 @@ class _MenuCrearConversacionGrupalScreenState extends State<MenuCrearConversacio
     });
 
     try {
+      // Cargar IP guardada
+      final prefs = await SharedPreferences.getInstance();
+      final savedIP = prefs.getString('server_ip');
+      
+      if (savedIP == null || savedIP.isEmpty) {
+        _mostrarError('Primero configura la IP del servidor en la pantalla de Test');
+        return;
+      }
+
       final apiService = Provider.of<ApiService>(context, listen: false);
+      
+      // Configurar la URL base con la IP guardada
+      apiService.updateBaseUrl(savedIP);
       
       // Crear la sala usando la API
       final result = await apiService.createRoom(
@@ -180,28 +194,32 @@ class _MenuCrearConversacionGrupalScreenState extends State<MenuCrearConversacio
       final roomId = result['room_id'];
       final nombreUsuario = _nombreUsuarioController.text.trim();
       
-      // TODO: Navegar a la sala creada con el usuario como creador
       print('Sala creada exitosamente: $roomId');
       print('Usuario creador: $nombreUsuario');
       
-      // Por ahora mostrar éxito
+      // Mostrar éxito brevemente
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('¡Sala creada exitosamente!\nCódigo: $roomId'),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          duration: Duration(seconds: 2),
         ),
       );
       
-      // TODO: Navegar a la pantalla de la sala
-      // context.go('/room/$roomId?name=$nombreUsuario&isCreator=true');
+      // Esperar un momento para que se vea el snackbar
+      await Future.delayed(Duration(seconds: 1));
+      
+      // Navegar a la pantalla de la sala
+      context.go('/conversacion-grupal/$roomId?name=$nombreUsuario&isCreator=true');
       
     } catch (error) {
       _mostrarError('Error al crear la sala: $error');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

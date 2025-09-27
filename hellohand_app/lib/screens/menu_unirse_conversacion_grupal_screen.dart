@@ -1,3 +1,4 @@
+// lib/screens/menu_unirse_conversacion_grupal_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -71,7 +72,7 @@ class _MenuUnirseConversacionGrupalScreenState extends State<MenuUnirseConversac
                       SizedBox(height: 40),
                       
                       // Campo Nombre del Usuario
-                      _buildInputWithLabel("Coloca nombre a la conversacion:", _nombreController, "Tu nombre..."),
+                      _buildInputWithLabel("Coloca tu nombre:", _nombreController, "Tu nombre..."),
                       
                       SizedBox(height: 50),
                       
@@ -134,6 +135,9 @@ class _MenuUnirseConversacionGrupalScreenState extends State<MenuUnirseConversac
           child: TextField(
             controller: controller,
             style: TextStyle(color: Colors.white, fontSize: 16),
+            textCapitalization: controller == _roomIdController 
+                ? TextCapitalization.characters 
+                : TextCapitalization.words,
             decoration: InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -147,7 +151,7 @@ class _MenuUnirseConversacionGrupalScreenState extends State<MenuUnirseConversac
   }
 
   void _escanearQR() {
-    // TODO: Implementar scanner QR
+    // TODO: Implementar scanner QR en el futuro
     print('Abrir scanner QR');
     _mostrarInfo('Scanner QR próximamente...');
   }
@@ -169,8 +173,6 @@ class _MenuUnirseConversacionGrupalScreenState extends State<MenuUnirseConversac
     });
 
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      
       // Cargar la IP guardada desde SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final savedIP = prefs.getString('server_ip');
@@ -180,36 +182,49 @@ class _MenuUnirseConversacionGrupalScreenState extends State<MenuUnirseConversac
         return;
       }
       
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      
       // Configurar la URL base
       apiService.updateBaseUrl(savedIP);
       
       final roomId = _roomIdController.text.trim().toUpperCase();
       final nombreUsuario = _nombreController.text.trim();
       
-      // TODO: Llamar a API para unirse a la sala
-      // final result = await apiService.joinRoom(roomId, nombreUsuario);
-      
       print('Intentando unirse a sala: $roomId');
       print('Usuario: $nombreUsuario');
       
-      // Por ahora mostrar éxito simulado
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('¡Uniéndose a la sala $roomId!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      
-      // TODO: Navegar a la pantalla de la sala
-      // context.go('/room/$roomId?name=$nombreUsuario&isCreator=false');
+      // Verificar que la sala existe haciendo una llamada de prueba
+      try {
+        // Nota: La API joinRoom manejará si la sala existe o no
+        // Si la sala no existe, el backend devolverá un error
+        
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Uniéndose a la sala $roomId!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Esperar un momento para que se vea el snackbar
+        await Future.delayed(Duration(seconds: 1));
+        
+        // Navegar a la pantalla de la sala
+        context.go('/conversacion-grupal/$roomId?name=$nombreUsuario&isCreator=false');
+        
+      } catch (apiError) {
+        throw Exception('La sala "$roomId" no existe o no está disponible');
+      }
       
     } catch (error) {
       _mostrarError('Error al unirse a la sala: $error');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

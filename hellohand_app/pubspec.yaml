@@ -1,3 +1,4 @@
+#pubspec.yaml
 name: hellohand_app
 description: HelloHand - Traductor de señas en tiempo real
 version: 1.0.0+1
@@ -31,6 +32,10 @@ dependencies:
   # UI
   cupertino_icons: ^1.0.2
 
+  #flutter WebRTC
+  flutter_webrtc: ^0.9.48
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -47,3 +52,4 @@ flutter:
     - assets/images/elements/menu conversacion rapdia/
     - assets/images/elements/Menu crear conversacion grupal/
     - assets/images/elements/menu unrise conversacion grupal/
+    - assets/images/elements/conversacion grupal/

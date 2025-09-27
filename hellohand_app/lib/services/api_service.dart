@@ -1,3 +1,4 @@
+// lib/services/api_service.dart
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -118,6 +119,40 @@ class ApiService extends ChangeNotifier {
         'has_microphone': true,
         'is_deaf': false,
         'is_mute': false,
+      }),
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error ${response.statusCode}: ${response.body}');
+    }
+  }
+
+  // NUEVO: Obtener estado de una sala
+  Future<Map<String, dynamic>> getRoomStatus(String roomId) async {
+    final response = await _httpClient.get(
+      Uri.parse('$_baseUrl/rooms/$roomId/status/'),
+      headers: {'Accept': 'application/json'},
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error ${response.statusCode}: ${response.body}');
+    }
+  }
+
+  // NUEVO: Salir de una sala
+  Future<Map<String, dynamic>> leaveRoom(String roomId, String participantId) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/rooms/$roomId/leave/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: json.encode({
+        'participant_id': participantId,
       }),
     );
     
