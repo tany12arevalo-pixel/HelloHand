@@ -1,3 +1,4 @@
+// lib/screens/menu_conversacion_rapida_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -39,10 +40,7 @@ class MenuConversacionRapidaScreen extends StatelessWidget {
                     children: [
                       // Botón Crear Conversación Rápida
                       GestureDetector(
-                        onTap: () {
-                          // TODO: Navegar a crear conversación rápida
-                          print('Crear conversación rápida');
-                        },
+                        onTap: () => context.go('/menu-crear-conversacion-rapida'),
                         child: Image.asset(
                           'assets/images/elements/menu conversacion rapdia/boton crear conversaison rapida.png',
                           width: double.infinity,
@@ -55,10 +53,7 @@ class MenuConversacionRapidaScreen extends StatelessWidget {
                       
                       // Botón Unirse a Conversación Rápida
                       GestureDetector(
-                        onTap: () {
-                          // TODO: Navegar a unirse a conversación rápida
-                          print('Unirse a conversación rápida');
-                        },
+                        onTap: () => context.go('/menu-unirse-conversacion-rapida'),
                         child: Image.asset(
                           'assets/images/elements/menu conversacion rapdia/boton unirse a conversasion rapida.png',
                           width: double.infinity,

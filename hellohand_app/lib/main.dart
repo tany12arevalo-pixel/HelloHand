@@ -8,7 +8,10 @@ import 'screens/menu_conversacion_rapida_screen.dart';
 import 'screens/menu_conversacion_grupal_screen.dart';
 import 'screens/menu_crear_conversacion_grupal_screen.dart';
 import 'screens/menu_unirse_conversacion_grupal_screen.dart';
+import 'screens/menu_crear_conversacion_rapida_screen.dart';
+import 'screens/menu_unirse_conversacion_rapida_screen.dart';
 import 'screens/conversacion_grupal_screen.dart';
+import 'screens/conversacion_rapida_screen.dart';
 import 'services/api_service.dart';
 import 'services/websocket_service.dart';
 
@@ -28,10 +31,36 @@ class MyApp extends StatelessWidget {
         path: '/test',
         builder: (context, state) => TestScreen(),
       ),
+      
+      // RUTAS CONVERSACIÓN RÁPIDA
       GoRoute(
         path: '/menu-conversacion-rapida',
         builder: (context, state) => MenuConversacionRapidaScreen(),
       ),
+      GoRoute(
+        path: '/menu-crear-conversacion-rapida',
+        builder: (context, state) => MenuCrearConversacionRapidaScreen(),
+      ),
+      GoRoute(
+        path: '/menu-unirse-conversacion-rapida',
+        builder: (context, state) => MenuUnirseConversacionRapidaScreen(),
+      ),
+      GoRoute(
+        path: '/conversacion-rapida/:roomId',
+        builder: (context, state) {
+          final roomId = state.pathParameters['roomId']!;
+          final participantName = state.uri.queryParameters['name'] ?? 'Participante';
+          final isCreator = state.uri.queryParameters['isCreator'] == 'true';
+          
+          return ConversacionRapidaScreen(
+            roomId: roomId,
+            participantName: participantName,
+            isCreator: isCreator,
+          );
+        },
+      ),
+      
+      // RUTAS CONVERSACIÓN GRUPAL
       GoRoute(
         path: '/menu-conversacion-grupal',
         builder: (context, state) => MenuConversacionGrupalScreen(),
@@ -44,7 +73,6 @@ class MyApp extends StatelessWidget {
         path: '/menu-unirse-conversacion-grupal',
         builder: (context, state) => MenuUnirseConversacionGrupalScreen(),
       ),
-      // NUEVA RUTA: Sala de conversación grupal
       GoRoute(
         path: '/conversacion-grupal/:roomId',
         builder: (context, state) {

@@ -57,6 +57,10 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
   @override
   void initState() {
     super.initState();
+    print('=== INICIANDO ConversacionGrupalScreen ===');
+    print('Room ID: ${widget.roomId}');
+    print('Participant Name: ${widget.participantName}');
+    
     // Inicializar WebRTC service
     _webrtcService = WebRTCService();
     // Inicializar la sala al cargar la pantalla
@@ -65,6 +69,7 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
 
   @override
   void dispose() {
+    print('=== DISPOSING ConversacionGrupalScreen ===');
     // Limpiar recursos al salir de la pantalla
     _messageController.dispose();
     _chatScrollController.dispose();
@@ -84,23 +89,32 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
         _error = '';
       });
 
+      print('=== INICIALIZANDO SALA ===');
+      
       // Paso 1: Configurar IP del servidor desde SharedPreferences
+      print('Paso 1: Configurando servidor...');
       await _setupServerConnection();
       
       // Paso 2: Unirse a la sala usando API REST
+      print('Paso 2: Uniéndose a la sala...');
       await _joinRoom();
       
       // Paso 3: Conectar WebSocket para comunicación en tiempo real
+      print('Paso 3: Conectando WebSocket...');
       await _connectWebSocket();
       
       // Paso 4: Inicializar WebRTC
+      print('Paso 4: Inicializando WebRTC...');
       await _initializeWebRTC();
       
       setState(() {
         _isLoading = false;
       });
       
+      print('=== SALA INICIALIZADA EXITOSAMENTE ===');
+      
     } catch (error) {
+      print('ERROR inicializando sala: $error');
       setState(() {
         _error = 'Error inicializando sala: $error';
         _isLoading = false;
@@ -114,6 +128,8 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     final prefs = await SharedPreferences.getInstance();
     final serverIp = prefs.getString('server_ip');
     
+    print('Server IP desde SharedPreferences: $serverIp');
+    
     if (serverIp == null || serverIp.isEmpty) {
       throw Exception('IP del servidor no configurada. Ve a Test para configurarla.');
     }
@@ -121,10 +137,12 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     // Configurar ApiService para llamadas REST
     final apiService = Provider.of<ApiService>(context, listen: false);
     apiService.updateBaseUrl(serverIp);
+    print('ApiService configurado con IP: $serverIp');
     
     // Configurar WebSocketService para tiempo real
     final wsService = Provider.of<WebSocketService>(context, listen: false);
     wsService.updateServerIp(serverIp);
+    print('WebSocketService configurado con IP: $serverIp');
   }
 
   /// Unirse a la sala usando la API REST
@@ -133,19 +151,24 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       
+      print('Llamando joinRoom API...');
       // Llamar a la API para unirse a la sala
       final result = await apiService.joinRoom(
         widget.roomId,
         widget.participantName,
       );
       
+      print('Resultado joinRoom: $result');
+      
       // Guardar el ID del participante para el WebSocket
       _participantId = result['participant_id'];
+      print('Participant ID asignado: $_participantId');
       
       // Obtener estado completo de la sala y participantes
       await _refreshRoomStatus();
       
     } catch (error) {
+      print('ERROR en joinRoom: $error');
       throw Exception('Error uniéndose a sala: $error');
     }
   }
@@ -157,12 +180,16 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final status = await apiService.getRoomStatus(widget.roomId);
       
+      print('Estado de sala actualizado: ${status['participants']?.length} participantes');
+      
       setState(() {
         // Convertir JSON de participantes a objetos Participant
         _participants = (status['participants'] as List?)
             ?.map((p) => Participant.fromJson(p))
             .toList() ?? [];
       });
+      
+      print('Participantes actualizados: ${_participants.map((p) => '${p.name}(${p.id})').toList()}');
       
     } catch (error) {
       print('Error refrescando estado de sala: $error');
@@ -175,9 +202,11 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     try {
       final wsService = Provider.of<WebSocketService>(context, listen: false);
       
+      print('Configurando listeners WebSocket...');
       // Configurar listeners ANTES de conectar
       _setupWebSocketListeners();
       
+      print('Conectando WebSocket con Room: ${widget.roomId}, Participant: $_participantId');
       // Conectar usando room_id y participant_id
       await wsService.connect(widget.roomId, _participantId);
       
@@ -185,7 +214,10 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
         _isConnected = true;
       });
       
+      print('WebSocket conectado exitosamente');
+      
     } catch (error) {
+      print('ERROR conectando WebSocket: $error');
       throw Exception('Error conectando WebSocket: $error');
     }
   }
@@ -195,11 +227,15 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
   void _setupWebSocketListeners() {
     final wsService = Provider.of<WebSocketService>(context, listen: false);
     
+    print('Configurando listeners WebSocket...');
+    
     // Listener para cambios de estado de conexión WebSocket
     wsService.addListener(() {
       if (mounted) {
+        final newConnectionState = wsService.isConnected;
+        print('Estado conexión WebSocket cambió: $newConnectionState');
         setState(() {
-          _isConnected = wsService.isConnected;
+          _isConnected = newConnectionState;
         });
       }
     });
@@ -207,7 +243,8 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     // Listener para mensajes de chat entrantes
     // Cuando alguien más envía un mensaje, lo recibimos aquí
     wsService.addMessageCallback('chat_message', (message) {
-      print('Procesando mensaje de chat: $message');
+      print('=== MENSAJE CHAT RECIBIDO ===');
+      print('Mensaje: $message');
       
       // Crear objeto ChatMessage a partir del JSON recibido
       final chatMessage = ChatMessage(
@@ -230,15 +267,19 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
 
     // Listener para cuando se une un participante
     wsService.addMessageCallback('participant_joined', (message) {
-      print('Participante se unió: $message');
+      print('=== PARTICIPANTE SE UNIÓ ===');
+      print('Mensaje: $message');
       _refreshRoomStatus(); // Actualizar lista de participantes
     });
 
     // Listener para cuando sale un participante  
     wsService.addMessageCallback('participant_left', (message) {
-      print('Participante se fue: $message');
+      print('=== PARTICIPANTE SE FUE ===');
+      print('Mensaje: $message');
       _refreshRoomStatus(); // Actualizar lista de participantes
     });
+
+    print('Listeners WebSocket configurados');
   }
 
   /// Inicializar WebRTC con la configuración del WebSocket
@@ -247,29 +288,50 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
       if (_webrtcService != null) {
         final wsService = Provider.of<WebSocketService>(context, listen: false);
         
+        print('Inicializando WebRTC service...');
+        
         // Conectar WebRTC service con WebSocket
         _webrtcService!.initialize(wsService);
         
         // Agregar listener para cambios de estado
         _webrtcService!.addListener(() {
           if (mounted) {
+            print('WebRTC service estado cambió, actualizando UI...');
             setState(() {});
           }
         });
         
+        print('Inicializando media local...');
         // Inicializar media local (cámara y micrófono)
         await _webrtcService!.initializeLocalMedia();
         
         print('WebRTC inicializado correctamente');
+        
+        // Verificar estado después de inicializar
+        final callInfo = _webrtcService!.getCallInfo();
+        print('Estado WebRTC después de inicializar: $callInfo');
+        
+      } else {
+        print('ERROR: _webrtcService es null');
       }
     } catch (error) {
       print('Error inicializando WebRTC: $error');
       // No fallar la inicialización completa por WebRTC
+      // Mostrar error en UI pero continuar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inicializando cámara: $error'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
   /// Desconectar WebSocket al salir de la pantalla
   void _disconnectWebSocket() {
+    print('Desconectando WebSocket...');
     final wsService = Provider.of<WebSocketService>(context, listen: false);
     wsService.disconnect();
   }
@@ -278,11 +340,15 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
   /// Envía via WebSocket y agrega localmente para mostrar inmediatamente
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty || !_isConnected) {
+      print('No se puede enviar mensaje: texto vacío o desconectado');
       return;
     }
 
     final message = _messageController.text.trim();
     final wsService = Provider.of<WebSocketService>(context, listen: false);
+    
+    print('=== ENVIANDO MENSAJE ===');
+    print('Mensaje: $message');
     
     // Enviar mensaje via WebSocket al servidor
     wsService.sendChatMessage(message);
@@ -324,8 +390,10 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
   /// Notifica al servidor via API REST y navega de regreso al home
   void _leaveRoom() async {
     try {
+      print('=== SALIENDO DE LA SALA ===');
       final apiService = Provider.of<ApiService>(context, listen: false);
       await apiService.leaveRoom(widget.roomId, _participantId);
+      print('API leaveRoom completada');
     } catch (error) {
       print('Error saliendo de sala: $error');
     } finally {
@@ -571,169 +639,319 @@ class _ConversacionGrupalScreenState extends State<ConversacionGrupalScreen> {
     );
   }
 
-  /// Grid de video con WebRTC
-  /// Muestra video local y remoto cuando hay videollamadas activas
+  /// Grid de video con videollamada grupal real
+  /// Muestra video local y videos remotos cuando están activos
   Widget _buildVideoGrid() {
-    // Si hay videollamada activa, mostrar videos
-    if (_webrtcService?.isConnected == true) {
-      return Container(
-        height: 200,
-        child: Row(
-          children: [
-            // Video local (nuestro)
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.black,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
-                  child: _webrtcService?.localStream != null
-                      ? RTCVideoView(_webrtcService!.localStream!)
-                      : Center(
-                          child: Text(
-                            'Cámara local',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                ),
-              ),
-            ),
-            // Video remoto (del otro participante)
-            Expanded(
-              child: Container(
-                margin: EdgeInsets.only(left: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.black,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
-                  child: _webrtcService?.remoteStream != null
-                      ? RTCVideoView(_webrtcService!.remoteStream!)
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.person, color: Colors.white54, size: 40),
-                              Text(
-                                'Esperando video...',
-                                style: TextStyle(color: Colors.white54),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // Estado sin videollamada - mostrar botones para iniciar
     return Container(
-      height: 200,
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/elements/conversacion grupal/layer card camara.png'),
-          fit: BoxFit.cover,
-        ),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.videocam_off,
-              size: 50,
-              color: Colors.white54,
+      height: 250,
+      child: Column(
+        children: [
+          // Controles de videollamada
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Botón iniciar/terminar videollamada
+                ElevatedButton.icon(
+                  onPressed: _webrtcService != null 
+                      ? (_webrtcService!.isVideoCallActive 
+                          ? () async {
+                              print('=== PRESIONADO TERMINAR VIDEO ===');
+                              try {
+                                await _webrtcService!.endGroupVideoCall();
+                                setState(() {});
+                                print('Video terminado exitosamente');
+                              } catch (error) {
+                                print('Error terminando video: $error');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error terminando video: $error')),
+                                );
+                              }
+                            }
+                          : () async {
+                              print('=== PRESIONADO INICIAR VIDEO ===');
+                              try {
+                                await _webrtcService!.startGroupVideoCall();
+                                setState(() {});
+                                print('Video iniciado exitosamente');
+                              } catch (error) {
+                                print('Error iniciando video: $error');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error iniciando video: $error')),
+                                );
+                              }
+                            })
+                      : null,
+                  icon: Icon(
+                    _webrtcService?.isVideoCallActive == true 
+                        ? Icons.videocam_off 
+                        : Icons.videocam,
+                    size: 20,
+                  ),
+                  label: Text(
+                    _webrtcService?.isVideoCallActive == true 
+                        ? 'Terminar Video' 
+                        : 'Iniciar Video',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _webrtcService?.isVideoCallActive == true 
+                        ? Colors.red 
+                        : Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                
+                // Controles adicionales si el video está activo
+                if (_webrtcService?.isVideoCallActive == true) ...[
+                  SizedBox(width: 12),
+                  IconButton(
+                    onPressed: () {
+                      print('Toggling microphone...');
+                      _webrtcService?.toggleMicrophone();
+                      setState(() {});
+                    },
+                    icon: Icon(
+                      _webrtcService?.isMuted == true ? Icons.mic_off : Icons.mic,
+                      color: Colors.white,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: _webrtcService?.isMuted == true ? Colors.red : Colors.blue,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      print('Switching camera...');
+                      _webrtcService?.switchCamera();
+                      setState(() {});
+                    },
+                    icon: Icon(Icons.flip_camera_android, color: Colors.white),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            SizedBox(height: 8),
-            Text(
-              'Video llamada disponible',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
-            ),
-            SizedBox(height: 12),
-            // Botón para iniciar llamada
-            ElevatedButton.icon(
-              onPressed: _participants.isNotEmpty ? () => _showCallDialog() : null,
-              icon: Icon(Icons.video_call, size: 20),
-              label: Text('Iniciar Video'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Mostrar dialog para seleccionar participante para videollamada
-  void _showCallDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: Text(
-          'Iniciar Videollamada',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Selecciona un participante:',
-              style: TextStyle(color: Colors.white70),
-            ),
-            SizedBox(height: 16),
-            ..._participants
-                .where((p) => p.sessionId != _participantId)
-                .map((participant) => ListTile(
-                      leading: Icon(Icons.person, color: Colors.white),
-                      title: Text(
-                        participant.name,
-                        style: TextStyle(color: Colors.white),
+          ),
+          
+          // Grid de videos
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Video local (siempre visible si hay stream)
+                  if (_webrtcService?.localRenderer != null)
+                    Container(
+                      width: 200,
+                      margin: EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: _webrtcService?.isVideoCallActive == true 
+                              ? Colors.green 
+                              : Colors.purple,
+                          width: 2,
+                        ),
+                        color: Colors.black,
                       ),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        _startVideoCall(participant.sessionId);
-                      },
-                    ))
-                .toList(),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar'),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: RTCVideoView(_webrtcService!.localRenderer!),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${widget.participantName} (Tú)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_webrtcService?.isVideoCallActive == true)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.videocam,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Videos remotos (de otros participantes)
+                  ..._webrtcService?.remoteRenderers.entries.map((entry) {
+                    final participantId = entry.key;
+                    final renderer = entry.value;
+                    final participant = _participants.firstWhere(
+                      (p) => p.id == participantId,
+                      orElse: () => Participant(
+                        id: participantId,
+                        name: 'Participante',
+                        hasCamera: true,
+                        hasMicrophone: true,
+                        isDeaf: false,
+                        isMute: false,
+                        joinedAt: DateTime.now(),
+                      ),
+                    );
+                    
+                    print('Renderizando video remoto: $participantId - ${participant.name}');
+                    
+                    return Container(
+                      width: 200,
+                      margin: EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: Colors.blue,
+                          width: 2,
+                        ),
+                        color: Colors.black,
+                      ),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: RTCVideoView(renderer),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                participant.name,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.videocam,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList() ?? [],
+                  
+                  // Participantes sin video
+                  ..._participants
+                      .where((p) => p.id != _participantId && 
+                                  !(_webrtcService?.remoteRenderers.containsKey(p.id) ?? false))
+                      .map((participant) => Container(
+                            width: 200,
+                            margin: EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(
+                                color: Colors.grey,
+                                width: 2,
+                              ),
+                              color: Colors.black26,
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.person, color: Colors.white54, size: 40),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    participant.name,
+                                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                                  ),
+                                  Text(
+                                    'Sin video',
+                                    style: TextStyle(color: Colors.white54, fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                  
+                  // Mensaje cuando no hay otros participantes
+                  if (_participants.where((p) => p.id != _participantId).isEmpty)
+                    Container(
+                      width: 300,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: Colors.white24,
+                          width: 2,
+                        ),
+                        color: Colors.black12,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.people_outline, color: Colors.white54, size: 40),
+                            SizedBox(height: 8),
+                            Text(
+                              'Esperando más participantes...',
+                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                            Text(
+                              'Código: ${widget.roomId}',
+                              style: TextStyle(color: Colors.white54, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
-  }
-
-  /// Iniciar videollamada con participante específico
-  void _startVideoCall(String targetParticipantId) async {
-    try {
-      await _webrtcService?.startCall(targetParticipantId);
-      setState(() {});
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error iniciando videollamada: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   /// Sección completa de chat en tiempo real
