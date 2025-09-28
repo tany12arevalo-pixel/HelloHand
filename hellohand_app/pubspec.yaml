@@ -33,7 +33,10 @@ dependencies:
   cupertino_icons: ^1.0.2
 
   #flutter WebRTC
-  flutter_webrtc: ^0.9.48
+  flutter_webrtc:
+    git:
+      url: https://github.com/flutter-webrtc/flutter-webrtc.git
+      ref: main
 
 
 dev_dependencies:
