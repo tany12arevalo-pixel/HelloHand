@@ -26,4 +26,6 @@ urlpatterns = [
     # API para salir de una sala
     # POST /api/rooms/{room_id}/leave/
     path('<str:room_id>/leave/', views.LeaveRoomView.as_view(), name='leave_room'),
+
+    path('<str:room_id>/info/', views.RoomInfoView.as_view(), name='room_info'),
 ]

@@ -65,6 +65,16 @@ class Room(models.Model):
         default=10,
         help_text="Número máximo de participantes permitidos"
     )
+
+    room_type = models.CharField(
+    max_length=20,
+    choices=[
+        ('group', 'Conversación Grupal'),
+        ('quick', 'Conversación Rápida'),
+    ],
+    default='group',
+    help_text="Tipo de sala: grupal o rápida"
+)
     
     # Configuración de características habilitadas
     translation_enabled = models.BooleanField(

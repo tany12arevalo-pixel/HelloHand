@@ -11,41 +11,20 @@ import uuid
 
 class CreateRoomView(APIView):
     """
-    API para crear una nueva sala
+    API para crear una nueva sala Y unir al creador automáticamente
     POST /api/rooms/create/
-    
-    Body (opcional):
-    {
-        "name": "Mi sala de conferencia",
-        "max_participants": 10,
-        "translation_enabled": true,
-        "stt_enabled": true,
-        "tts_enabled": true
-    }
-    
-    Response:
-    {
-        "room_id": "ABC123",
-        "status": "created",
-        "participants_count": 0,
-        "room_name": "Mi sala de conferencia",
-        "features": {
-            "translation_enabled": true,
-            "stt_enabled": true,
-            "tts_enabled": true
-        },
-        "created_at": "2024-01-15T10:30:00Z"
-    }
     """
     
     def post(self, request):
         try:
-            # Obtener datos del request (todos opcionales)
+            # Obtener datos del request
             room_name = request.data.get('name', '')
             max_participants = request.data.get('max_participants', 10)
             translation_enabled = request.data.get('translation_enabled', True)
             stt_enabled = request.data.get('stt_enabled', True)
             tts_enabled = request.data.get('tts_enabled', True)
+            room_type = request.data.get('room_type', 'group')
+            creator_name = request.data.get('creator_name', request.data.get('participant_name', 'Creador'))
             
             # Validar max_participants
             if not isinstance(max_participants, int) or max_participants < 2 or max_participants > 50:
@@ -57,16 +36,32 @@ class CreateRoomView(APIView):
             room = Room.objects.create(
                 name=room_name,
                 max_participants=max_participants,
+                room_type=room_type,
                 translation_enabled=translation_enabled,
                 stt_enabled=stt_enabled,
                 tts_enabled=tts_enabled
             )
             
-            # Preparar respuesta
+            # CRÍTICO: Crear participante para el creador automáticamente
+            participant = Participant.objects.create(
+                room=room,
+                session_id=str(uuid.uuid4()),
+                name=creator_name[:50],  # Limitar a 50 caracteres
+                has_camera=True,
+                has_microphone=True,
+                is_deaf=False,
+                is_mute=False
+            )
+            
+            # Activar la sala inmediatamente
+            room.activate()
+            
+            # Preparar respuesta con participant_id incluido
             response_data = {
                 'room_id': room.room_id,
-                'status': 'created',
-                'participants_count': 0,
+                'participant_id': participant.session_id,  # NUEVO: ID del participante creador
+                'status': 'created_and_joined',
+                'participants_count': 1,  # Ya hay 1 participante (el creador)
                 'room_name': room.name or f'Sala {room.room_id}',
                 'features': {
                     'translation_enabled': room.translation_enabled,
@@ -74,7 +69,8 @@ class CreateRoomView(APIView):
                     'tts_enabled': room.tts_enabled
                 },
                 'max_participants': room.max_participants,
-                'created_at': room.created_at.isoformat()
+                'created_at': room.created_at.isoformat(),
+                'room_status': room.status  # Ahora será 'active'
             }
             
             return Response(response_data, status=status.HTTP_201_CREATED)
@@ -83,7 +79,6 @@ class CreateRoomView(APIView):
             return Response({
                 'error': f'Error creando sala: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class JoinRoomView(APIView):
     """
@@ -428,3 +423,26 @@ class ListRoomsView(APIView):
             return Response({
                 'error': f'Error listando salas: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RoomInfoView(APIView):
+    def get(self, request, room_id):
+        try:
+            room = Room.objects.get(room_id=room_id)
+            
+            return Response({
+                'success': True,
+                'room': {
+                    'room_id': room.room_id,
+                    'name': room.name,
+                    'room_type': room.room_type,
+                    'max_participants': room.max_participants,
+                    'participant_count': room.participants.count(),
+                    'created_at': room.created_at,
+                    'status': room.status
+                }
+            })
+        except Room.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Sala no encontrada'
+            }, status=status.HTTP_404_NOT_FOUND)

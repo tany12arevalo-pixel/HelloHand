@@ -9,7 +9,7 @@ import 'screens/menu_conversacion_grupal_screen.dart';
 import 'screens/menu_crear_conversacion_grupal_screen.dart';
 import 'screens/menu_unirse_conversacion_grupal_screen.dart';
 import 'screens/menu_crear_conversacion_rapida_screen.dart';
-import 'screens/menu_unirse_conversacion_rapida_screen.dart';
+import 'screens/menu_unirse_conversacion_rapida_screen.dart'; 
 import 'screens/conversacion_grupal_screen.dart';
 import 'screens/conversacion_rapida_screen.dart';
 import 'services/api_service.dart';
@@ -45,21 +45,6 @@ class MyApp extends StatelessWidget {
         path: '/menu-unirse-conversacion-rapida',
         builder: (context, state) => MenuUnirseConversacionRapidaScreen(),
       ),
-      GoRoute(
-        path: '/conversacion-rapida/:roomId',
-        builder: (context, state) {
-          final roomId = state.pathParameters['roomId']!;
-          final participantName = state.uri.queryParameters['name'] ?? 'Participante';
-          final isCreator = state.uri.queryParameters['isCreator'] == 'true';
-          
-          return ConversacionRapidaScreen(
-            roomId: roomId,
-            participantName: participantName,
-            isCreator: isCreator,
-          );
-        },
-      ),
-      
       // RUTAS CONVERSACIÓN GRUPAL
       GoRoute(
         path: '/menu-conversacion-grupal',
@@ -74,19 +59,21 @@ class MyApp extends StatelessWidget {
         builder: (context, state) => MenuUnirseConversacionGrupalScreen(),
       ),
       GoRoute(
-        path: '/conversacion-grupal/:roomId',
+        path: '/conversacion-rapida/:roomId',
         builder: (context, state) {
-          final roomId = state.pathParameters['roomId']!;
-          final participantName = state.uri.queryParameters['name'] ?? 'Participante';
-          final isCreator = state.uri.queryParameters['isCreator'] == 'true';
-          
-          return ConversacionGrupalScreen(
-            roomId: roomId,
-            participantName: participantName,
-            isCreator: isCreator,
-          );
-        },
-      ),
+        final roomId = state.pathParameters['roomId']!;
+        final name = state.uri.queryParameters['name'] ?? '';
+        final participantId = state.uri.queryParameters['participantId'];
+        final isCreator = state.uri.queryParameters['isCreator'] == 'true';
+    
+          return ConversacionRapidaScreen(
+          roomId: roomId,
+          participantName: name,
+          participantId: participantId,
+          isCreator: isCreator,
+        );
+      },
+    ),
     ],
   );
 

@@ -1,18 +1,17 @@
-// lib/screens/menu_unirse_conversacion_rapida_screen.dart
+// lib/screens/menu_crear_conversacion_rapida_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
-class MenuUnirseConversacionRapidaScreen extends StatefulWidget {
+class MenuCrearConversacionRapidaScreen extends StatefulWidget {
   @override
-  _MenuUnirseConversacionRapidaScreenState createState() => _MenuUnirseConversacionRapidaScreenState();
+  _MenuCrearConversacionRapidaScreenState createState() => _MenuCrearConversacionRapidaScreenState();
 }
 
-class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversacionRapidaScreen> {
-  final TextEditingController _roomIdController = TextEditingController();
-  final TextEditingController _nombreController = TextEditingController();
+class _MenuCrearConversacionRapidaScreenState extends State<MenuCrearConversacionRapidaScreen> {
+  final TextEditingController _nombreUsuarioController = TextEditingController();
   bool _isLoading = false;
 
   @override
@@ -55,7 +54,7 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
                     children: [
                       // Título descriptivo
                       Text(
-                        'Unirse a Conversación Rápida',
+                        'Crear Conversación Rápida',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -68,7 +67,7 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
                       
                       // Descripción
                       Text(
-                        'Ingresa el código de la sala\npara conversar 1 a 1',
+                        'Máximo 2 participantes\nPerfecto para conversaciones íntimas',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 16,
@@ -78,24 +77,19 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
                       
                       SizedBox(height: 40),
                       
-                      // Campo ID de la Sala
-                      _buildInputWithLabel("Coloca el ID de la sala:", _roomIdController, "ABC123"),
-                      
-                      SizedBox(height: 30),
-                      
-                      // Campo Nombre del Usuario
-                      _buildInputWithLabel("Coloca tu nombre:", _nombreController, "Tu nombre..."),
+                      // Campo Tu Nombre
+                      _buildInputWithLabel("Tu nombre:", _nombreUsuarioController, "Escribe tu nombre..."),
                       
                       SizedBox(height: 50),
                       
-                      // Botón Unirse a la Conversación Rápida
+                      // Botón Crear Conversación Rápida
                       GestureDetector(
-                        onTap: _isLoading ? null : () => _unirseConversacionRapida(),
+                        onTap: _isLoading ? null : () => _crearConversacionRapida(),
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
                             Image.asset(
-                              'assets/images/elements/menu conversacion rapdia/boton unirse a conversasion rapida.png',
+                              'assets/images/elements/menu conversacion rapdia/boton crear conversaison rapida.png',
                               width: double.infinity,
                               height: 250,
                               fit: BoxFit.contain,
@@ -118,7 +112,7 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
     );
   }
 
-  Widget _buildInputWithLabel(String label, TextEditingController controller, String hint) {
+  Widget _buildInputWithLabel(String label, TextEditingController controller, String hint, {bool isNumeric = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -139,49 +133,30 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
           height: 60,
           decoration: BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/images/elements/menu unrise conversacion grupal/layer input.png'),
+              image: AssetImage('assets/images/elements/Menu crear conversacion grupal/input block.png'),
               fit: BoxFit.cover,
             ),
             borderRadius: BorderRadius.circular(15),
           ),
           child: TextField(
             controller: controller,
+            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
             style: TextStyle(color: Colors.white, fontSize: 16),
-            textCapitalization: controller == _roomIdController 
-                ? TextCapitalization.characters 
-                : TextCapitalization.words,
             decoration: InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               hintText: hint,
               hintStyle: TextStyle(color: Colors.white54),
             ),
-            onChanged: (value) {
-              if (controller == _roomIdController) {
-                // Auto convertir a mayúsculas para códigos de sala
-                final upperValue = value.toUpperCase();
-                if (upperValue != value) {
-                  controller.value = TextEditingValue(
-                    text: upperValue,
-                    selection: TextSelection.collapsed(offset: upperValue.length),
-                  );
-                }
-              }
-            },
           ),
         ),
       ],
     );
   }
 
-  void _unirseConversacionRapida() async {
+  void _crearConversacionRapida() async {
     // Validaciones
-    if (_roomIdController.text.trim().isEmpty) {
-      _mostrarError('Por favor ingresa el ID de la sala');
-      return;
-    }
-    
-    if (_nombreController.text.trim().isEmpty) {
+    if (_nombreUsuarioController.text.trim().isEmpty) {
       _mostrarError('Por favor ingresa tu nombre');
       return;
     }
@@ -191,7 +166,7 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
     });
 
     try {
-      // Cargar la IP guardada desde SharedPreferences
+      // Cargar IP guardada
       final prefs = await SharedPreferences.getInstance();
       final savedIP = prefs.getString('server_ip');
       
@@ -199,69 +174,43 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
         _mostrarError('Primero configura la IP del servidor en la pantalla de Test');
         return;
       }
-      
+
       final apiService = Provider.of<ApiService>(context, listen: false);
       
-      // Configurar la URL base
+      // Configurar la URL base con la IP guardada
       apiService.updateBaseUrl(savedIP);
       
-      final roomId = _roomIdController.text.trim().toUpperCase();
-      final nombreUsuario = _nombreController.text.trim();
+      // Crear la sala rápida usando la API (máximo 2 participantes)
+      final result = await apiService.createRoomWithParams(
+        participantName: _nombreUsuarioController.text.trim(),
+        maxParticipants: 2, // Límite fijo para conversación rápida
+        roomType: 'quick', // Tipo de sala rápida
+      );
       
-      print('Intentando unirse a sala rápida: $roomId');
-      print('Usuario: $nombreUsuario');
+      final roomId = result['room_id'];
+      final nombreUsuario = _nombreUsuarioController.text.trim();
       
-      try {
-        // Verificar que la sala existe y es del tipo correcto
-        final roomInfo = await apiService.getRoomInfo(roomId);
-        
-        if (!roomInfo['success']) {
-          throw Exception('La sala "$roomId" no existe');
-        }
-
-        final roomData = roomInfo['room'];
-        
-        // Verificar que es una sala rápida
-        if (roomData['room_type'] != 'quick') {
-          throw Exception('Esta no es una sala de conversación rápida');
-        }
-
-        // Verificar que no esté llena (máximo 2 participantes)
-        if (roomData['participant_count'] >= 2) {
-          throw Exception('La sala está llena (máximo 2 participantes)');
-        }
-        
-        // Unirse a la sala
-        final joinResult = await apiService.joinRoom(
-          roomCode: roomId,
-          participantName: nombreUsuario,
-        );
-        
-        if (!joinResult['success']) {
-          throw Exception(joinResult['message'] ?? 'Error al unirse a la sala');
-        }
-        
-        // Mostrar mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('¡Te has unido a la sala rápida $roomId!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        
-        // Esperar un momento para que se vea el snackbar
-        await Future.delayed(Duration(seconds: 1));
-        
-        // Navegar a la pantalla de la sala rápida
-        context.go('/conversacion-rapida/$roomId?name=$nombreUsuario&isCreator=false');
-        
-      } catch (apiError) {
-        throw Exception(apiError.toString());
-      }
+      print('Sala rápida creada exitosamente: $roomId');
+      print('Usuario creador: $nombreUsuario');
+      print('Máximo participantes: 2');
+      
+      // Mostrar éxito brevemente
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('¡Sala rápida creada exitosamente!\nCódigo: $roomId'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      // Esperar un momento para que se vea el snackbar
+      await Future.delayed(Duration(seconds: 1));
+      
+      // SOLUCIÓN: Navegar SIN participantId (igual que conversación grupal)
+      context.go('/conversacion-rapida/$roomId?name=$nombreUsuario&isCreator=true');
       
     } catch (error) {
-      _mostrarError('Error al unirse a la sala: $error');
+      _mostrarError('Error al crear la sala rápida: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -283,8 +232,7 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
 
   @override
   void dispose() {
-    _roomIdController.dispose();
-    _nombreController.dispose();
+    _nombreUsuarioController.dispose();
     super.dispose();
   }
 }

@@ -231,16 +231,6 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
           throw Exception('La sala está llena (máximo 2 participantes)');
         }
         
-        // Unirse a la sala
-        final joinResult = await apiService.joinRoom(
-          roomCode: roomId,
-          participantName: nombreUsuario,
-        );
-        
-        if (!joinResult['success']) {
-          throw Exception(joinResult['message'] ?? 'Error al unirse a la sala');
-        }
-        
         // Mostrar mensaje de éxito
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -253,7 +243,8 @@ class _MenuUnirseConversacionRapidaScreenState extends State<MenuUnirseConversac
         // Esperar un momento para que se vea el snackbar
         await Future.delayed(Duration(seconds: 1));
         
-        // Navegar a la pantalla de la sala rápida
+        // SOLUCIÓN: Navegar SIN participantId (igual que conversación grupal)
+        // La persona se unirá automáticamente en _joinRoom() de la pantalla
         context.go('/conversacion-rapida/$roomId?name=$nombreUsuario&isCreator=false');
         
       } catch (apiError) {
