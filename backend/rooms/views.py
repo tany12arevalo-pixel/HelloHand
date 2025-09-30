@@ -11,7 +11,7 @@ import uuid
 
 class CreateRoomView(APIView):
     """
-    API para crear una nueva sala Y unir al creador automáticamente
+    API para crear una nueva sala (sin unir al creador automáticamente)
     POST /api/rooms/create/
     """
     
@@ -24,7 +24,6 @@ class CreateRoomView(APIView):
             stt_enabled = request.data.get('stt_enabled', True)
             tts_enabled = request.data.get('tts_enabled', True)
             room_type = request.data.get('room_type', 'group')
-            creator_name = request.data.get('creator_name', request.data.get('participant_name', 'Creador'))
             
             # Validar max_participants
             if not isinstance(max_participants, int) or max_participants < 2 or max_participants > 50:
@@ -42,26 +41,10 @@ class CreateRoomView(APIView):
                 tts_enabled=tts_enabled
             )
             
-            # CRÍTICO: Crear participante para el creador automáticamente
-            participant = Participant.objects.create(
-                room=room,
-                session_id=str(uuid.uuid4()),
-                name=creator_name[:50],  # Limitar a 50 caracteres
-                has_camera=True,
-                has_microphone=True,
-                is_deaf=False,
-                is_mute=False
-            )
-            
-            # Activar la sala inmediatamente
-            room.activate()
-            
-            # Preparar respuesta con participant_id incluido
+            # Preparar respuesta
             response_data = {
                 'room_id': room.room_id,
-                'participant_id': participant.session_id,  # NUEVO: ID del participante creador
-                'status': 'created_and_joined',
-                'participants_count': 1,  # Ya hay 1 participante (el creador)
+                'status': 'created',
                 'room_name': room.name or f'Sala {room.room_id}',
                 'features': {
                     'translation_enabled': room.translation_enabled,
@@ -70,7 +53,7 @@ class CreateRoomView(APIView):
                 },
                 'max_participants': room.max_participants,
                 'created_at': room.created_at.isoformat(),
-                'room_status': room.status  # Ahora será 'active'
+                'room_status': room.status
             }
             
             return Response(response_data, status=status.HTTP_201_CREATED)
@@ -80,6 +63,7 @@ class CreateRoomView(APIView):
                 'error': f'Error creando sala: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class JoinRoomView(APIView):
     """
     API para unirse a una sala existente
@@ -87,35 +71,11 @@ class JoinRoomView(APIView):
     
     Body:
     {
-        "participant_name": "Juan Pérez",
-        "has_camera": true,
-        "has_microphone": true,
-        "is_deaf": false,
-        "is_mute": false
-    }
-    
-    Response (exitoso):
-    {
-        "status": "joined",
-        "room_id": "ABC123",
-        "participant_id": "uuid-session-id",
-        "room_info": {
-            "name": "Mi sala",
-            "participants_count": 2,
-            "max_participants": 10,
-            "features": {...}
-        },
-        "participants": [
-            {"id": "uuid1", "name": "Juan", "has_camera": true, "has_microphone": true},
-            {"id": "uuid2", "name": "María", "has_camera": false, "has_microphone": true}
-        ]
-    }
-    
-    Response (error):
-    {
-        "error": "La sala está llena",
-        "room_status": "active",
-        "participants_count": 10
+        "name": "Juan Pérez",
+        "hasCamera": true,
+        "hasMicrophone": true,
+        "isDeaf": false,
+        "isMute": false
     }
     """
     
@@ -133,12 +93,12 @@ class JoinRoomView(APIView):
                     'participants_count': room.get_participants_count()
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Obtener datos del participante
-            participant_name = request.data.get('participant_name', 'Participante')
-            has_camera = request.data.get('has_camera', True)
-            has_microphone = request.data.get('has_microphone', True)
-            is_deaf = request.data.get('is_deaf', False)
-            is_mute = request.data.get('is_mute', False)
+            # Obtener datos del participante (soportar ambos formatos camelCase y snake_case)
+            participant_name = request.data.get('name') or request.data.get('participant_name', 'Participante')
+            has_camera = request.data.get('hasCamera', request.data.get('has_camera', True))
+            has_microphone = request.data.get('hasMicrophone', request.data.get('has_microphone', True))
+            is_deaf = request.data.get('isDeaf', request.data.get('is_deaf', False))
+            is_mute = request.data.get('isMute', request.data.get('is_mute', False))
             
             # Generar session_id único
             session_id = str(uuid.uuid4())
@@ -147,7 +107,7 @@ class JoinRoomView(APIView):
             participant = Participant.objects.create(
                 room=room,
                 session_id=session_id,
-                name=participant_name[:50],  # Limitar nombre a 50 caracteres
+                name=participant_name[:50],
                 has_camera=has_camera,
                 has_microphone=has_microphone,
                 is_deaf=is_deaf,
@@ -209,21 +169,6 @@ class RoomStatusView(APIView):
     """
     API para obtener el estado actual de una sala
     GET /api/rooms/{room_id}/status/
-    
-    Response:
-    {
-        "room_id": "ABC123",
-        "status": "active",
-        "participants_count": 3,
-        "max_participants": 10,
-        "room_info": {
-            "name": "Mi sala",
-            "created_at": "2024-01-15T10:30:00Z",
-            "started_at": "2024-01-15T10:35:00Z",
-            "features": {...}
-        },
-        "participants": [...]
-    }
     """
     
     def get(self, request, room_id):
@@ -286,19 +231,6 @@ class LeaveRoomView(APIView):
     """
     API para salir de una sala
     POST /api/rooms/{room_id}/leave/
-    
-    Body:
-    {
-        "participant_id": "uuid-session-id"
-    }
-    
-    Response:
-    {
-        "status": "left",
-        "room_id": "ABC123",
-        "participants_count": 2,
-        "room_status": "active"  # o "ended" si era el último participante
-    }
     """
     
     def post(self, request, room_id):
@@ -356,31 +288,13 @@ class ListRoomsView(APIView):
     """
     API para listar salas (principalmente para debug y administración)
     GET /api/rooms/list/
-    
-    Query params opcionales:
-    - status: waiting, active, ended
-    - limit: número máximo de salas a retornar (default: 20)
-    
-    Response:
-    {
-        "rooms": [
-            {
-                "room_id": "ABC123",
-                "name": "Mi sala",
-                "status": "active",
-                "participants_count": 3,
-                "created_at": "2024-01-15T10:30:00Z"
-            }
-        ],
-        "total_count": 15
-    }
     """
     
     def get(self, request):
         try:
             # Parámetros de filtro
             status_filter = request.GET.get('status')
-            limit = min(int(request.GET.get('limit', 20)), 100)  # Máximo 100
+            limit = min(int(request.GET.get('limit', 20)), 100)
             
             # Query base
             rooms_query = Room.objects.all()
@@ -424,7 +338,13 @@ class ListRoomsView(APIView):
                 'error': f'Error listando salas: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class RoomInfoView(APIView):
+    """
+    API para obtener información básica de una sala
+    GET /api/rooms/{room_id}/info/
+    """
+    
     def get(self, request, room_id):
         try:
             room = Room.objects.get(room_id=room_id)

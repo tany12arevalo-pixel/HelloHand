@@ -30,7 +30,7 @@
     <main class="room-content">
       <div class="container">
         <div class="room-grid">
-          
+
           <!-- Panel de Videollamada -->
           <section class="video-section">
             <div class="section-card video-card">
@@ -44,104 +44,60 @@
                     <div class="status-dot"></div>
                     <span>{{ isCallActive ? 'En llamada' : 'Sin llamada' }}</span>
                   </div>
-                  
-                  <!-- Controles de videollamada -->
-                  <button 
-                    v-if="!isCallActive && otherParticipants.length > 0"
-                    @click="startVideoCall"
-                    class="call-btn start-call"
-                    :disabled="!hasLocalStream"
-                  >
+
+                  <button v-if="!isCallActive && otherParticipants.length > 0" @click="startVideoCall"
+                    class="call-btn start-call" :disabled="!hasLocalStream">
                     📞 Iniciar
                   </button>
-                  
-                  <button 
-                    v-if="isCallActive"
-                    @click="endVideoCall"
-                    class="call-btn end-call"
-                  >
+
+                  <button v-if="isCallActive" @click="endVideoCall" class="call-btn end-call">
                     📞 Colgar
                   </button>
                 </div>
               </div>
-              
+
               <div class="video-container-wrapper">
-                <!-- Grid de videos -->
                 <div class="video-grid">
-                  <!-- Video local (propio) -->
                   <div class="video-item local-video">
-                    <video 
-                      ref="localVideoElement"
-                      autoplay 
-                      muted 
-                      playsinline
-                      class="video-element"
-                    ></video>
+                    <video ref="localVideoElement" autoplay muted playsinline class="video-element"></video>
                     <div class="video-overlay">
                       <span class="video-label">{{ participantName }} (Tú)</span>
                     </div>
-                    
-                    <!-- Controles de audio/video local -->
+
                     <div class="video-controls">
-                      <button 
-                        @click="toggleMute"
-                        :class="['control-btn', { muted: isMuted }]"
-                        :title="isMuted ? 'Activar micrófono' : 'Silenciar micrófono'"
-                      >
+                      <button @click="toggleMute" :class="['control-btn', { muted: isMuted }]"
+                        :title="isMuted ? 'Activar micrófono' : 'Silenciar micrófono'">
                         {{ isMuted ? '🔇' : '🎤' }}
                       </button>
-                      <button 
-                        @click="toggleVideo"
-                        :class="['control-btn', { disabled: isVideoOff }]"
-                        :title="isVideoOff ? 'Activar cámara' : 'Desactivar cámara'"
-                      >
+                      <button @click="toggleVideo" :class="['control-btn', { disabled: isVideoOff }]"
+                        :title="isVideoOff ? 'Activar cámara' : 'Desactivar cámara'">
                         {{ isVideoOff ? '📷' : '📹' }}
                       </button>
                     </div>
                   </div>
-                  
-                  <!-- Videos remotos -->
-                  <div 
-                    v-for="(remoteParticipant, participantId) in remoteParticipants" 
-                    :key="participantId"
-                    class="video-item remote-video"
-                  >
-                    <video 
-                      :ref="`remoteVideo_${participantId}`"
-                      autoplay 
-                      playsinline
-                      class="video-element"
-                    ></video>
+
+                  <div v-for="(remoteParticipant, participantId) in remoteParticipants" :key="participantId"
+                    class="video-item remote-video">
+                    <video :ref="`remoteVideo_${participantId}`" autoplay playsinline class="video-element"></video>
                     <div class="video-overlay">
                       <span class="video-label">{{ remoteParticipant.name }}</span>
                     </div>
                   </div>
-                  
-                  <!-- Placeholder cuando no hay videos remotos -->
+
                   <div v-if="Object.keys(remoteParticipants).length === 0" class="video-placeholder">
                     <div class="placeholder-content">
                       <div class="placeholder-icon">👋</div>
                       <h3>Esperando participantes...</h3>
-                      <p v-if="!hasLocalStream">
-                        Permitir acceso a cámara y micrófono
-                      </p>
-                      <p v-else-if="otherParticipants.length === 0">
-                        No hay otros participantes en la sala
-                      </p>
-                      <p v-else>
-                        Haz clic en "Iniciar" para conectar
-                      </p>
+                      <p v-if="!hasLocalStream">Permitir acceso a cámara y micrófono</p>
+                      <p v-else-if="otherParticipants.length === 0">No hay otros participantes en la sala</p>
+                      <p v-else>Haz clic en "Iniciar" para conectar</p>
                     </div>
                   </div>
                 </div>
-                
-                <!-- Estado de conexión WebRTC -->
+
                 <div v-if="connectionStates.length > 0" class="connection-states">
-                  <span 
-                    v-for="state in connectionStates" 
-                    :key="state.participantId"
-                    :class="['connection-badge', getConnectionClass(state.state)]"
-                  >
+                  <span v-for="state in connectionStates" :key="state.participantId"
+                    :class="['connection-badge', getConnectionClass(state.state)]">
                     {{ state.participantName }}: {{ state.state }}
                   </span>
                 </div>
@@ -156,23 +112,24 @@
                 <div class="section-icon">💬</div>
                 <h2>Chat en Tiempo Real</h2>
               </div>
-              
+
               <div class="chat-container">
-                <!-- Área de Mensajes -->
                 <div class="messages-area" ref="chatMessages">
-                  <div 
-                    v-for="message in messages" 
-                    :key="message.id"
-                    :class="['message-bubble', { 'own-message': message.sender_id === participantId }]"
-                  >
+                  <div v-for="message in messages" :key="message.id"
+                    :class="['message-bubble', { 'own-message': message.sender_id === participantId }]">
                     <div class="message-header">
                       <strong class="sender-name">{{ message.sender_name }}</strong>
                       <span class="message-time">{{ formatTime(message.timestamp) }}</span>
                     </div>
-                    <div class="message-text">{{ message.message }}</div>
+                    <div class="message-content">
+                      <div class="message-text">{{ message.message }}</div>
+                      <button @click="speakMessage(message)" :class="['tts-btn', { active: isSpeaking(message.id) }]"
+                        :title="isSpeaking(message.id) ? 'Detener' : 'Escuchar mensaje'">
+                        {{ isSpeaking(message.id) ? '⏸️' : '🔊' }}
+                      </button>
+                    </div>
                   </div>
-                  
-                  <!-- Mensaje cuando no hay mensajes -->
+
                   <div v-if="messages.length === 0" class="empty-chat">
                     <div class="empty-icon">💭</div>
                     <p>No hay mensajes aún</p>
@@ -180,48 +137,23 @@
                   </div>
                 </div>
 
-                <!-- Área de Entrada de Mensaje -->
                 <div class="chat-input-area">
-                  <!-- Input de texto normal -->
                   <form @submit.prevent="sendMessage" class="message-form">
-                    <input 
-                      v-model="newMessage" 
-                      type="text" 
-                      class="message-input"
-                      placeholder="Escribe un mensaje..."
-                      :disabled="!isConnected"
-                      maxlength="500"
-                    >
-                    <button 
-                      type="submit" 
-                      :disabled="!newMessage.trim() || !isConnected"
-                      class="send-btn"
-                    >
-                      📤
-                    </button>
+                    <input v-model="newMessage" type="text" class="message-input" placeholder="Escribe un mensaje..."
+                      :disabled="!isConnected" maxlength="500">
+                    <button type="submit" :disabled="!newMessage.trim() || !isConnected" class="send-btn">📤</button>
                   </form>
-                  
-                  <!-- Controles de Speech-to-Text -->
+
                   <div class="stt-controls">
-                    <button 
-                      @mousedown="startSpeechRecognition"
-                      @mouseup="stopSpeechRecognition"
-                      @mouseleave="stopSpeechRecognition"
-                      @touchstart="startSpeechRecognition"
-                      @touchend="stopSpeechRecognition"
-                      :disabled="!isConnected"
-                      :class="['stt-btn', { recording: isListening }]"
-                    >
+                    <button @mousedown="startSpeechRecognition" @mouseup="stopSpeechRecognition"
+                      @mouseleave="stopSpeechRecognition" @touchstart="startSpeechRecognition"
+                      @touchend="stopSpeechRecognition" :disabled="!isConnected"
+                      :class="['stt-btn', { recording: isListening }]">
                       <span class="stt-icon">{{ isListening ? '🔴' : '🎤' }}</span>
-                      <span class="stt-text">
-                        {{ isListening ? 'Grabando...' : 'Mantén presionado' }}
-                      </span>
+                      <span class="stt-text">{{ isListening ? 'Grabando...' : 'Mantén presionado' }}</span>
                     </button>
-                    
-                    <!-- Mostrar texto mientras habla -->
-                    <div v-if="interimText" class="interim-text">
-                      "{{ interimText }}"
-                    </div>
+
+                    <div v-if="interimText" class="interim-text">"{{ interimText }}"</div>
                   </div>
                 </div>
               </div>
@@ -242,50 +174,30 @@
                   <div class="status-dot"></div>
                   <span>{{ isTranslating ? 'Activo' : 'Detenido' }}</span>
                 </div>
-                <button 
-                  @click="toggleSignTranslation" 
-                  :class="['toggle-btn', { active: isTranslating }]"
-                  :disabled="!hasLocalStream"
-                >
+                <button @click="toggleSignTranslation" :class="['toggle-btn', { active: isTranslating }]"
+                  :disabled="!hasLocalStream">
                   {{ isTranslating ? 'Detener' : 'Iniciar' }}
                 </button>
               </div>
             </div>
-            
+
             <div class="translation-content">
               <div class="translation-grid">
-                <!-- Video de cámara para señas -->
                 <div class="camera-section">
                   <div class="camera-container">
-                    <video 
-                      ref="videoElement" 
-                      autoplay 
-                      muted 
-                      playsinline
-                      class="translation-video"
-                    ></video>
-                    <canvas 
-                      ref="canvasElement"
-                      class="translation-canvas"
-                    ></canvas>
-                    
-                    <!-- Overlay de estado -->
+                    <video ref="videoElement" autoplay muted playsinline class="translation-video"></video>
+                    <canvas ref="canvasElement" class="translation-canvas"></canvas>
+
                     <div class="video-status-overlay">
                       <span :class="['status-badge', { active: isTranslating }]">
                         {{ isTranslating ? 'Traduciendo...' : 'Detenido' }}
                       </span>
                     </div>
                   </div>
-                  
-                  <!-- Controles adicionales -->
+
                   <div class="camera-controls">
-                    <button 
-                      @click="clearTranslations" 
-                      class="clear-btn"
-                      :disabled="recentTranslations.length === 0"
-                    >
-                      🗑️ Limpiar
-                    </button>
+                    <button @click="clearTranslations" class="clear-btn"
+                      :disabled="recentTranslations.length === 0">🗑️ Limpiar</button>
                     <div class="available-signs">
                       <span class="signs-label">Disponibles:</span>
                       <span class="sign-tag">tonto</span>
@@ -294,27 +206,18 @@
                     </div>
                   </div>
                 </div>
-                
-                <!-- Resultados de traducción -->
+
                 <div class="results-section">
                   <h3 class="results-title">Últimas Traducciones:</h3>
                   <div class="results-container">
-                    <div 
-                      v-for="translation in recentTranslations" 
-                      :key="translation.id"
-                      class="translation-result"
-                    >
+                    <div v-for="translation in recentTranslations" :key="translation.id" class="translation-result">
                       <div class="result-content">
                         <div class="result-text">{{ translation.prediction }}</div>
-                        <div class="result-confidence">
-                          {{ (translation.confidence * 100).toFixed(1) }}%
-                        </div>
+                        <div class="result-confidence">{{ (translation.confidence * 100).toFixed(1) }}%</div>
                       </div>
-                      <div class="result-time">
-                        {{ formatTime(translation.timestamp) }}
-                      </div>
+                      <div class="result-time">{{ formatTime(translation.timestamp) }}</div>
                     </div>
-                    
+
                     <div v-if="recentTranslations.length === 0" class="empty-results">
                       <div class="empty-icon">🤟</div>
                       <p>No hay traducciones aún</p>
@@ -334,13 +237,9 @@
               <div class="section-icon">👥</div>
               <h2>Participantes ({{ participants.length }})</h2>
             </div>
-            
+
             <div class="participants-grid">
-              <div 
-                v-for="participant in participants" 
-                :key="participant.id"
-                class="participant-item"
-              >
+              <div v-for="participant in participants" :key="participant.id" class="participant-item">
                 <div class="participant-avatar">
                   <span class="avatar-text">{{ participant.name.charAt(0).toUpperCase() }}</span>
                 </div>
@@ -353,20 +252,11 @@
                     <span v-if="participant.is_mute" class="badge mute">🤐</span>
                   </div>
                 </div>
-                
-                <!-- Botón para llamar individualmente -->
+
                 <div v-if="participant.id !== participantId" class="participant-actions">
-                  <button 
-                    v-if="!isCallActive"
-                    @click="callParticipant(participant.id)"
-                    class="call-participant-btn"
-                    :disabled="!hasLocalStream"
-                  >
-                    📞
-                  </button>
-                  <span v-else-if="remoteParticipants[participant.id]" class="in-call-badge">
-                    En llamada
-                  </span>
+                  <button v-if="!isCallActive" @click="callParticipant(participant.id)"
+                    class="call-participant-btn" :disabled="!hasLocalStream">📞</button>
+                  <span v-else-if="remoteParticipants[participant.id]" class="in-call-badge">En llamada</span>
                 </div>
               </div>
             </div>
@@ -391,6 +281,7 @@ import { roomsAPI, translatorAPI } from '@/services/api'
 import wsService from '@/services/websocket'
 import mediaPipeService from '@/services/mediapipe'
 import webrtcService from '@/services/webrtcService'
+import ttsService from '@/services/textToSpeech'
 
 export default {
   name: 'RoomView',
@@ -419,9 +310,12 @@ export default {
       hasLocalStream: false,
       isMuted: false,
       isVideoOff: false,
-      remoteParticipants: {}, // participantId -> { name, stream }
-      connectionStates: [], // [{ participantId, participantName, state }]
-      localStream: null
+      remoteParticipants: {},
+      connectionStates: [],
+      localStream: null,
+      
+      // Text-to-Speech
+      speakingMessageId: null
     }
   },
   
@@ -438,8 +332,11 @@ export default {
     await this.joinRoom()
     await this.initializeMedia()
   },
-  
-  beforeUnmount() {
+
+beforeUnmount() {
+    if (ttsService) {
+      ttsService.cleanup()
+    }
     this.cleanup()
   },
   
@@ -766,6 +663,30 @@ export default {
       this.error = 'Error de reconocimiento de voz: ' + errorMessage
       this.isListening = false
       this.interimText = ''
+    },
+
+    async speakMessage(message) {
+      try {
+        if (this.speakingMessageId === message.id) {
+          ttsService.stop()
+          this.speakingMessageId = null
+          return
+        }
+        
+        ttsService.stop()
+        this.speakingMessageId = message.id
+        await ttsService.speak(message.message)
+        this.speakingMessageId = null
+        
+      } catch (error) {
+        console.error('Error en TTS:', error)
+        this.speakingMessageId = null
+        this.error = 'Error reproduciendo mensaje: ' + error.message
+      }
+    },
+
+    isSpeaking(messageId) {
+      return this.speakingMessageId === messageId
     },
 
     async toggleSignTranslation() {
@@ -1356,7 +1277,14 @@ export default {
   color: rgba(255, 255, 255, 0.5);
 }
 
+.message-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
 .message-text {
+  flex: 1;
   background: rgba(255, 255, 255, 0.1);
   padding: 0.75rem 1rem;
   border-radius: 1rem;
@@ -1367,6 +1295,51 @@ export default {
 .own-message .message-text {
   background: linear-gradient(135deg, #8b5cf6, #a855f7);
   color: white;
+}
+
+.tts-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(139, 92, 246, 0.2);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tts-btn:hover {
+  background: rgba(139, 92, 246, 0.4);
+  transform: scale(1.1);
+}
+
+.tts-btn.active {
+  background: rgba(239, 68, 68, 0.6);
+  animation: tts-pulse 1s infinite;
+}
+
+@keyframes tts-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.own-message .tts-btn {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.own-message .tts-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .empty-chat {
