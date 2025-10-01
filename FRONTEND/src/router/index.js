@@ -13,14 +13,24 @@ const routes = [
     component: () => import('../views/MenuGrupal.vue')
   },
   {
+    path: '/create-quick',
+    name: 'CreateQuickRoom',
+    component: () => import('../views/CreateQuickRoom.vue')
+  },
+  {
     path: '/room/:roomId',
-    name: 'Room',
-    component: () => import('../views/Room.vue')
+    name: 'GroupRoom',
+    component: () => import('../views/GroupRoom.vue')
   },
   {
     path: '/group/:roomId',
     name: 'GroupRoom',
-    component: () => import('../views/Room.vue') // Por ahora usa el mismo Room.vue
+    component: () => import('../views/GroupRoom.vue')
+  },
+  {
+    path: '/quick/:roomId',
+    name: 'QuickRoom',
+    component: () => import('../views/QuickRoom.vue') // Por ahora usa el mismo Room.vue
   }
 ]
 

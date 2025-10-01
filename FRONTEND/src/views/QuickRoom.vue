@@ -1,279 +1,256 @@
-<!-- src/views/Room.vue -->
 <template>
-  <div class="hello-hand-room">
-    <!-- Header de la Sala -->
-    <header class="room-header">
-      <div class="container">
-        <div class="header-content">
-          <div class="room-info">
-            <h1 class="room-title">👋 Sala: {{ roomId }}</h1>
-            <div class="room-stats">
-              <div class="stat-item">
-                <div class="stat-icon">👥</div>
-                <span>{{ participants.length }} participante(s)</span>
-              </div>
-              <div class="stat-item">
-                <div class="connection-indicator" :class="{ active: isConnected }"></div>
-                <span>{{ isConnected ? 'Conectado' : 'Desconectado' }}</span>
-              </div>
-            </div>
-          </div>
-          <button @click="leaveRoom" class="leave-btn">
-            <span>🚪</span>
-            Salir
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- Contenido Principal -->
-    <main class="room-content">
-      <div class="container">
-        <div class="room-grid">
-
-          <!-- Panel de Videollamada -->
-          <section class="video-section">
-            <div class="section-card video-card">
-              <div class="card-header">
-                <div class="header-left">
-                  <div class="section-icon">📹</div>
-                  <h2>Videollamada</h2>
-                </div>
-                <div class="header-right">
-                  <div class="call-status" :class="{ active: isCallActive }">
-                    <div class="status-dot"></div>
-                    <span>{{ isCallActive ? 'En llamada' : 'Sin llamada' }}</span>
-                  </div>
-
-                  <button v-if="!isCallActive && otherParticipants.length > 0" @click="startVideoCall"
-                    class="call-btn start-call" :disabled="!hasLocalStream">
-                    📞 Iniciar
-                  </button>
-
-                  <button v-if="isCallActive" @click="endVideoCall" class="call-btn end-call">
-                    📞 Colgar
-                  </button>
-                </div>
-              </div>
-
-              <div class="video-container-wrapper">
-                <div class="video-grid">
-                  <div class="video-item local-video">
-                    <video ref="localVideoElement" autoplay muted playsinline class="video-element"></video>
-                    <div class="video-overlay">
-                      <span class="video-label">{{ participantName }} (Tú)</span>
+    <div class="hello-hand-quick-room">
+        <!-- Header de la Sala -->
+        <header class="room-header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="room-info">
+                        <h1 class="room-title">⚡ Sala Rápida: {{ roomId }}</h1>
+                        <div class="room-stats">
+                            <div class="stat-item">
+                                <div class="stat-icon">👥</div>
+                                <span>{{ participants.length }}/2 participantes</span>
+                            </div>
+                            <div class="stat-item">
+                                <div class="connection-indicator" :class="{ active: isConnected }"></div>
+                                <span>{{ isConnected ? 'Conectado' : 'Desconectado' }}</span>
+                            </div>
+                        </div>
                     </div>
-
-                    <div class="video-controls">
-                      <button @click="toggleMute" :class="['control-btn', { muted: isMuted }]"
-                        :title="isMuted ? 'Activar micrófono' : 'Silenciar micrófono'">
-                        {{ isMuted ? '🔇' : '🎤' }}
-                      </button>
-                      <button @click="toggleVideo" :class="['control-btn', { disabled: isVideoOff }]"
-                        :title="isVideoOff ? 'Activar cámara' : 'Desactivar cámara'">
-                        {{ isVideoOff ? '📷' : '📹' }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div v-for="(remoteParticipant, participantId) in remoteParticipants" :key="participantId"
-                    class="video-item remote-video">
-                    <video :ref="`remoteVideo_${participantId}`" autoplay playsinline class="video-element"></video>
-                    <div class="video-overlay">
-                      <span class="video-label">{{ remoteParticipant.name }}</span>
-                    </div>
-                  </div>
-
-                  <div v-if="Object.keys(remoteParticipants).length === 0" class="video-placeholder">
-                    <div class="placeholder-content">
-                      <div class="placeholder-icon">👋</div>
-                      <h3>Esperando participantes...</h3>
-                      <p v-if="!hasLocalStream">Permitir acceso a cámara y micrófono</p>
-                      <p v-else-if="otherParticipants.length === 0">No hay otros participantes en la sala</p>
-                      <p v-else>Haz clic en "Iniciar" para conectar</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="connectionStates.length > 0" class="connection-states">
-                  <span v-for="state in connectionStates" :key="state.participantId"
-                    :class="['connection-badge', getConnectionClass(state.state)]">
-                    {{ state.participantName }}: {{ state.state }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Panel de Chat -->
-          <section class="chat-section">
-            <div class="section-card chat-card">
-              <div class="card-header">
-                <div class="section-icon">💬</div>
-                <h2>Chat en Tiempo Real</h2>
-              </div>
-
-              <div class="chat-container">
-                <div class="messages-area" ref="chatMessages">
-                  <div v-for="message in messages" :key="message.id"
-                    :class="['message-bubble', { 'own-message': message.sender_id === participantId }]">
-                    <div class="message-header">
-                      <strong class="sender-name">{{ message.sender_name }}</strong>
-                      <span class="message-time">{{ formatTime(message.timestamp) }}</span>
-                    </div>
-                    <div class="message-content">
-                      <div class="message-text">{{ message.message }}</div>
-                      <button @click="speakMessage(message)" :class="['tts-btn', { active: isSpeaking(message.id) }]"
-                        :title="isSpeaking(message.id) ? 'Detener' : 'Escuchar mensaje'">
-                        {{ isSpeaking(message.id) ? '⏸️' : '🔊' }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div v-if="messages.length === 0" class="empty-chat">
-                    <div class="empty-icon">💭</div>
-                    <p>No hay mensajes aún</p>
-                    <small>¡Sé el primero en escribir!</small>
-                  </div>
-                </div>
-
-                <div class="chat-input-area">
-                  <form @submit.prevent="sendMessage" class="message-form">
-                    <input v-model="newMessage" type="text" class="message-input" placeholder="Escribe un mensaje..."
-                      :disabled="!isConnected" maxlength="500">
-                    <button type="submit" :disabled="!newMessage.trim() || !isConnected" class="send-btn">📤</button>
-                  </form>
-
-                  <div class="stt-controls">
-                    <button @mousedown="startSpeechRecognition" @mouseup="stopSpeechRecognition"
-                      @mouseleave="stopSpeechRecognition" @touchstart="startSpeechRecognition"
-                      @touchend="stopSpeechRecognition" :disabled="!isConnected"
-                      :class="['stt-btn', { recording: isListening }]">
-                      <span class="stt-icon">{{ isListening ? '🔴' : '🎤' }}</span>
-                      <span class="stt-text">{{ isListening ? 'Grabando...' : 'Mantén presionado' }}</span>
+                    <button @click="leaveRoom" class="leave-btn">
+                        <span>🚪</span>
+                        Salir
                     </button>
-
-                    <div v-if="interimText" class="interim-text">"{{ interimText }}"</div>
-                  </div>
                 </div>
-              </div>
             </div>
-          </section>
+        </header>
+
+        <!-- Contenido Principal -->
+        <main class="room-content">
+            <div class="container">
+                <!-- Panel de Videollamada - Más grande para 2 personas -->
+                <section class="video-section-large">
+                    <div class="section-card video-card">
+                        <div class="card-header">
+                            <div class="header-left">
+                                <div class="section-icon">📹</div>
+                                <h2>Videollamada 1 a 1</h2>
+                            </div>
+                            <div class="header-right">
+                                <div class="call-status" :class="{ active: isCallActive }">
+                                    <div class="status-dot"></div>
+                                    <span>{{ isCallActive ? 'En llamada' : 'Sin llamada' }}</span>
+                                </div>
+
+                                <button v-if="!isCallActive && otherParticipants.length > 0" @click="startVideoCall"
+                                    class="call-btn start-call" :disabled="!hasLocalStream">
+                                    📞 Iniciar
+                                </button>
+
+                                <button v-if="isCallActive" @click="endVideoCall" class="call-btn end-call">
+                                    📞 Colgar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="video-container-wrapper">
+                            <!-- Grid para 2 videos lado a lado -->
+                            <div class="video-grid-duo">
+                                <!-- Video local -->
+                                <div class="video-item-large local-video">
+                                    <video ref="localVideoElement" autoplay muted playsinline
+                                        class="video-element"></video>
+                                    <div class="video-overlay">
+                                        <span class="video-label">{{ participantName }} (Tú)</span>
+                                    </div>
+
+                                    <div class="video-controls">
+                                        <button @click="toggleMute" :class="['control-btn', { muted: isMuted }]"
+                                            :title="isMuted ? 'Activar micrófono' : 'Silenciar micrófono'">
+                                            {{ isMuted ? '🔇' : '🎤' }}
+                                        </button>
+                                        <button @click="toggleVideo" :class="['control-btn', { disabled: isVideoOff }]"
+                                            :title="isVideoOff ? 'Activar cámara' : 'Desactivar cámara'">
+                                            {{ isVideoOff ? '📷' : '📹' }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Video remoto -->
+                                <div v-for="(remoteParticipant, participantId) in remoteParticipants"
+                                    :key="participantId" class="video-item-large remote-video">
+                                    <video :ref="`remoteVideo_${participantId}`" autoplay playsinline
+                                        class="video-element"></video>
+                                    <div class="video-overlay">
+                                        <span class="video-label">{{ remoteParticipant.name }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Placeholder cuando espera compañero -->
+                                <div v-if="Object.keys(remoteParticipants).length === 0"
+                                    class="video-placeholder-large">
+                                    <div class="placeholder-content">
+                                        <div class="placeholder-icon">⏳</div>
+                                        <h3>Esperando compañero...</h3>
+                                        <p v-if="!hasLocalStream">Permitir acceso a cámara y micrófono</p>
+                                        <p v-else-if="otherParticipants.length === 0">
+                                            Comparte el código <strong>{{ roomId }}</strong> con alguien
+                                        </p>
+                                        <p v-else>Haz clic en "Iniciar" para conectar</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="connectionStates.length > 0" class="connection-states">
+                                <span v-for="state in connectionStates" :key="state.participantId"
+                                    :class="['connection-badge', getConnectionClass(state.state)]">
+                                    {{ state.participantName }}: {{ state.state }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Grid para Chat y Traducción lado a lado -->
+                <div class="side-by-side-grid">
+                    <!-- Panel de Chat -->
+                    <section class="chat-section">
+                        <div class="section-card chat-card">
+                            <div class="card-header">
+                                <div class="section-icon">💬</div>
+                                <h2>Chat</h2>
+                            </div>
+
+                            <div class="chat-container">
+                                <div class="messages-area" ref="chatMessages">
+                                    <div v-for="message in messages" :key="message.id"
+                                        :class="['message-bubble', { 'own-message': message.sender_id === participantId }]">
+                                        <div class="message-header">
+                                            <strong class="sender-name">{{ message.sender_name }}</strong>
+                                            <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+                                        </div>
+                                        <div class="message-content">
+                                            <div class="message-text">{{ message.message }}</div>
+                                            <button @click="speakMessage(message)"
+                                                :class="['tts-btn', { active: isSpeaking(message.id) }]"
+                                                :title="isSpeaking(message.id) ? 'Detener' : 'Escuchar mensaje'">
+                                                {{ isSpeaking(message.id) ? '⏸️' : '🔊' }}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="messages.length === 0" class="empty-chat">
+                                        <div class="empty-icon">💭</div>
+                                        <p>No hay mensajes aún</p>
+                                        <small>Inicia la conversación</small>
+                                    </div>
+                                </div>
+
+                                <div class="chat-input-area">
+                                    <form @submit.prevent="sendMessage" class="message-form">
+                                        <input v-model="newMessage" type="text" class="message-input"
+                                            placeholder="Escribe un mensaje..." :disabled="!isConnected"
+                                            maxlength="500">
+                                        <button type="submit" :disabled="!newMessage.trim() || !isConnected"
+                                            class="send-btn">📤</button>
+                                    </form>
+
+                                    <div class="stt-controls">
+                                        <button @mousedown="startSpeechRecognition" @mouseup="stopSpeechRecognition"
+                                            @mouseleave="stopSpeechRecognition" @touchstart="startSpeechRecognition"
+                                            @touchend="stopSpeechRecognition" :disabled="!isConnected"
+                                            :class="['stt-btn', { recording: isListening }]">
+                                            <span class="stt-icon">{{ isListening ? '🔴' : '🎤' }}</span>
+                                            <span class="stt-text">{{ isListening ? 'Grabando...' : 'Mantén presionado'
+                                                }}</span>
+                                        </button>
+
+                                        <div v-if="interimText" class="interim-text">"{{ interimText }}"</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Panel de Traducción de Señas -->
+                    <section class="translation-section">
+                        <div class="section-card translation-card">
+                            <div class="card-header">
+                                <div class="header-left">
+                                    <div class="section-icon">🤟</div>
+                                    <h2>Traducción de Señas</h2>
+                                </div>
+                                <div class="header-right">
+                                    <div class="translation-status" :class="{ active: isTranslating }">
+                                        <div class="status-dot"></div>
+                                        <span>{{ isTranslating ? 'Activo' : 'Detenido' }}</span>
+                                    </div>
+                                    <button @click="toggleSignTranslation"
+                                        :class="['toggle-btn', { active: isTranslating }]" :disabled="!hasLocalStream">
+                                        {{ isTranslating ? 'Detener' : 'Iniciar' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="translation-content">
+                                <div class="camera-container">
+                                    <video ref="videoElement" autoplay muted playsinline
+                                        class="translation-video"></video>
+                                    <canvas ref="canvasElement" class="translation-canvas"></canvas>
+
+                                    <div class="video-status-overlay">
+                                        <span :class="['status-badge', { active: isTranslating }]">
+                                            {{ isTranslating ? 'Traduciendo...' : 'Detenido' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="camera-controls">
+                                    <button @click="clearTranslations" class="clear-btn"
+                                        :disabled="recentTranslations.length === 0">🗑️ Limpiar</button>
+                                    <div class="available-signs">
+                                        <span class="signs-label">Disponibles:</span>
+                                        <span class="sign-tag">tonto</span>
+                                        <span class="sign-tag">mal</span>
+                                        <span class="sign-tag">bien</span>
+                                    </div>
+                                </div>
+
+                                <div class="results-section">
+                                    <h3 class="results-title">Últimas Traducciones:</h3>
+                                    <div class="results-container">
+                                        <div v-for="translation in recentTranslations" :key="translation.id"
+                                            class="translation-result">
+                                            <div class="result-content">
+                                                <div class="result-text">{{ translation.prediction }}</div>
+                                                <div class="result-confidence">{{ (translation.confidence *
+                                                    100).toFixed(1) }}%</div>
+                                            </div>
+                                            <div class="result-time">{{ formatTime(translation.timestamp) }}</div>
+                                        </div>
+
+                                        <div v-if="recentTranslations.length === 0" class="empty-results">
+                                            <div class="empty-icon">🤟</div>
+                                            <p>No hay traducciones aún</p>
+                                            <small>Haz una seña para empezar</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modal de Error -->
+        <div v-if="error" class="error-modal">
+            <div class="error-content">
+                <div class="error-icon">⚠️</div>
+                <span class="error-text">{{ error }}</span>
+                <button @click="error = ''" class="error-close">✕</button>
+            </div>
         </div>
-
-        <!-- Panel de Traducción de Señas -->
-        <section class="translation-section">
-          <div class="section-card translation-card">
-            <div class="card-header">
-              <div class="header-left">
-                <div class="section-icon">🤟</div>
-                <h2>Traducción de Señas en Tiempo Real</h2>
-              </div>
-              <div class="header-right">
-                <div class="translation-status" :class="{ active: isTranslating }">
-                  <div class="status-dot"></div>
-                  <span>{{ isTranslating ? 'Activo' : 'Detenido' }}</span>
-                </div>
-                <button @click="toggleSignTranslation" :class="['toggle-btn', { active: isTranslating }]"
-                  :disabled="!hasLocalStream">
-                  {{ isTranslating ? 'Detener' : 'Iniciar' }}
-                </button>
-              </div>
-            </div>
-
-            <div class="translation-content">
-              <div class="translation-grid">
-                <div class="camera-section">
-                  <div class="camera-container">
-                    <video ref="videoElement" autoplay muted playsinline class="translation-video"></video>
-                    <canvas ref="canvasElement" class="translation-canvas"></canvas>
-
-                    <div class="video-status-overlay">
-                      <span :class="['status-badge', { active: isTranslating }]">
-                        {{ isTranslating ? 'Traduciendo...' : 'Detenido' }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="camera-controls">
-                    <button @click="clearTranslations" class="clear-btn"
-                      :disabled="recentTranslations.length === 0">🗑️ Limpiar</button>
-                    <div class="available-signs">
-                      <span class="signs-label">Disponibles:</span>
-                      <span class="sign-tag">tonto</span>
-                      <span class="sign-tag">mal</span>
-                      <span class="sign-tag">bien</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="results-section">
-                  <h3 class="results-title">Últimas Traducciones:</h3>
-                  <div class="results-container">
-                    <div v-for="translation in recentTranslations" :key="translation.id" class="translation-result">
-                      <div class="result-content">
-                        <div class="result-text">{{ translation.prediction }}</div>
-                        <div class="result-confidence">{{ (translation.confidence * 100).toFixed(1) }}%</div>
-                      </div>
-                      <div class="result-time">{{ formatTime(translation.timestamp) }}</div>
-                    </div>
-
-                    <div v-if="recentTranslations.length === 0" class="empty-results">
-                      <div class="empty-icon">🤟</div>
-                      <p>No hay traducciones aún</p>
-                      <small>Haz una seña para empezar</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Panel de Participantes -->
-        <section class="participants-section">
-          <div class="section-card participants-card">
-            <div class="card-header">
-              <div class="section-icon">👥</div>
-              <h2>Participantes ({{ participants.length }})</h2>
-            </div>
-
-            <div class="participants-grid">
-              <div v-for="participant in participants" :key="participant.id" class="participant-item">
-                <div class="participant-avatar">
-                  <span class="avatar-text">{{ participant.name.charAt(0).toUpperCase() }}</span>
-                </div>
-                <div class="participant-info">
-                  <div class="participant-name">{{ participant.name }}</div>
-                  <div class="participant-badges">
-                    <span v-if="participant.has_camera" class="badge camera">📹</span>
-                    <span v-if="participant.has_microphone" class="badge microphone">🎤</span>
-                    <span v-if="participant.is_deaf" class="badge deaf">👂</span>
-                    <span v-if="participant.is_mute" class="badge mute">🤐</span>
-                  </div>
-                </div>
-
-                <div v-if="participant.id !== participantId" class="participant-actions">
-                  <button v-if="!isCallActive" @click="callParticipant(participant.id)"
-                    class="call-participant-btn" :disabled="!hasLocalStream">📞</button>
-                  <span v-else-if="remoteParticipants[participant.id]" class="in-call-badge">En llamada</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
-
-    <!-- Modal de Error -->
-    <div v-if="error" class="error-modal">
-      <div class="error-content">
-        <div class="error-icon">⚠️</div>
-        <span class="error-text">{{ error }}</span>
-        <button @click="error = ''" class="error-close">✕</button>
-      </div>
     </div>
-  </div>
 </template>
 
 <script>
@@ -284,7 +261,7 @@ import webrtcService from '@/services/webrtcService'
 import ttsService from '@/services/textToSpeech'
 
 export default {
-  name: 'RoomView',
+  name: 'QuickRoom',
   data() {
     return {
       roomId: '',
@@ -333,7 +310,7 @@ export default {
     await this.initializeMedia()
   },
 
-beforeUnmount() {
+  beforeUnmount() {
     if (ttsService) {
       ttsService.cleanup()
     }
@@ -822,7 +799,10 @@ beforeUnmount() {
 </script>
 
 <style scoped>
-.hello-hand-room {
+/* ============================================
+   BASE - TEMA NARANJA/AMARILLO PARA QUICK ROOM
+   ============================================ */
+.hello-hand-quick-room {
   min-height: 100vh;
   background: linear-gradient(135deg, #1a0828 0%, #2d1b69 50%, #1a0828 100%);
   color: white;
@@ -830,15 +810,17 @@ beforeUnmount() {
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
-/* Header */
+/* ============================================
+   HEADER - Tema naranja
+   ============================================ */
 .room-header {
   padding: 2rem 0;
-  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(20px);
 }
@@ -855,7 +837,7 @@ beforeUnmount() {
   font-size: 2rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
-  background: linear-gradient(135deg, #8b5cf6, #e879f9);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -888,12 +870,12 @@ beforeUnmount() {
 }
 
 .connection-indicator.active {
-  background: #10b981;
-  box-shadow: 0 0 10px #10b981;
-  animation: pulse 2s infinite;
+  background: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b;
+  animation: pulse-orange 2s infinite;
 }
 
-@keyframes pulse {
+@keyframes pulse-orange {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
@@ -917,23 +899,36 @@ beforeUnmount() {
   box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
 }
 
-/* Contenido principal */
+/* ============================================
+   CONTENIDO PRINCIPAL
+   ============================================ */
 .room-content {
   padding: 2rem 0;
 }
 
-.room-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+/* ============================================
+   VIDEO SECTION GRANDE (para 2 personas)
+   ============================================ */
+.video-section-large {
   margin-bottom: 2rem;
 }
 
-/* Tarjetas de sección */
+/* ============================================
+   GRID LADO A LADO (Chat y Traducción)
+   ============================================ */
+.side-by-side-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+/* ============================================
+   TARJETAS DE SECCIÓN - Tema naranja
+   ============================================ */
 .section-card {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 1.5rem;
   padding: 2rem;
   transition: all 0.3s ease;
@@ -948,7 +943,7 @@ beforeUnmount() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(232, 121, 249, 0.05));
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.05));
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -981,9 +976,9 @@ beforeUnmount() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #8b5cf6, #e879f9);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   border-radius: 0.75rem;
-  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
 }
 
 .card-header h2 {
@@ -992,7 +987,9 @@ beforeUnmount() {
   font-weight: 600;
 }
 
-/* Estados */
+/* ============================================
+   ESTADOS - Tema naranja
+   ============================================ */
 .call-status,
 .translation-status {
   display: flex;
@@ -1008,9 +1005,9 @@ beforeUnmount() {
 
 .call-status.active,
 .translation-status.active {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #10b981;
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
 }
 
 .status-dot {
@@ -1022,11 +1019,13 @@ beforeUnmount() {
 
 .call-status.active .status-dot,
 .translation-status.active .status-dot {
-  background: #10b981;
-  animation: pulse 2s infinite;
+  background: #f59e0b;
+  animation: pulse-orange 2s infinite;
 }
 
-/* Botones */
+/* ============================================
+   BOTONES - Tema naranja
+   ============================================ */
 .call-btn,
 .toggle-btn {
   padding: 0.75rem 1.5rem;
@@ -1039,13 +1038,13 @@ beforeUnmount() {
 }
 
 .start-call {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
 }
 
 .start-call:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
 }
 
 .end-call {
@@ -1059,7 +1058,7 @@ beforeUnmount() {
 }
 
 .toggle-btn {
-  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
 }
 
@@ -1069,26 +1068,28 @@ beforeUnmount() {
 
 .toggle-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
 }
 
-/* Video Grid */
+/* ============================================
+   VIDEO GRID DUO (2 videos grandes lado a lado)
+   ============================================ */
 .video-container-wrapper {
   position: relative;
   z-index: 2;
 }
 
-.video-grid {
+.video-grid-duo {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-  min-height: 350px;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  min-height: 450px;
 }
 
-.video-item {
+.video-item-large {
   position: relative;
   background: #000;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   overflow: hidden;
   aspect-ratio: 16/9;
 }
@@ -1100,55 +1101,57 @@ beforeUnmount() {
 }
 
 .local-video {
-  border: 2px solid #8b5cf6;
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  border: 3px solid #f59e0b;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
 }
 
 .remote-video {
-  border: 2px solid #10b981;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  border: 3px solid #10b981;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
 }
 
 .video-overlay {
   position: absolute;
-  bottom: 1rem;
-  left: 1rem;
+  bottom: 1.5rem;
+  left: 1.5rem;
   z-index: 10;
 }
 
 .video-label {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 500;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .video-controls {
   position: absolute;
-  bottom: 1rem;
-  right: 1rem;
+  bottom: 1.5rem;
+  right: 1.5rem;
   z-index: 10;
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .control-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   color: white;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .control-btn:hover {
-  background: rgba(139, 92, 246, 0.8);
+  background: rgba(245, 158, 11, 0.8);
   transform: scale(1.1);
 }
 
@@ -1157,36 +1160,47 @@ beforeUnmount() {
   background: rgba(239, 68, 68, 0.8);
 }
 
-.video-placeholder {
+.video-placeholder-large {
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed rgba(139, 92, 246, 0.3);
-  border-radius: 1rem;
+  border: 3px dashed rgba(245, 158, 11, 0.3);
+  border-radius: 1.5rem;
   aspect-ratio: 16/9;
 }
 
 .placeholder-content {
   text-align: center;
-  padding: 2rem;
+  padding: 3rem;
 }
 
 .placeholder-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  animation: waiting-pulse 2s infinite;
+}
+
+@keyframes waiting-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
 }
 
 .placeholder-content h3 {
   margin: 0 0 1rem 0;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .placeholder-content p {
-  margin: 0;
+  margin: 0.5rem 0;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
+  font-size: 1rem;
+}
+
+.placeholder-content strong {
+  color: #f59e0b;
+  font-weight: 700;
 }
 
 .connection-states {
@@ -1206,13 +1220,13 @@ beforeUnmount() {
 }
 
 .connection-badge.connected {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
 }
 
 .connection-badge.connecting {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 .connection-badge.failed {
@@ -1220,20 +1234,25 @@ beforeUnmount() {
   color: #ef4444;
 }
 
-/* Chat */
+/* ============================================
+   CHAT - Tema naranja
+   ============================================ */
 .chat-container {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .messages-area {
-  height: 350px;
+  height: 400px;
   overflow-y: auto;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 1rem;
   margin-bottom: 1rem;
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.1);
 }
 
 .messages-area::-webkit-scrollbar {
@@ -1246,7 +1265,7 @@ beforeUnmount() {
 }
 
 .messages-area::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.5);
+  background: rgba(245, 158, 11, 0.5);
   border-radius: 3px;
 }
 
@@ -1293,7 +1312,7 @@ beforeUnmount() {
 }
 
 .own-message .message-text {
-  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
 }
 
@@ -1303,7 +1322,7 @@ beforeUnmount() {
   min-width: 32px;
   border-radius: 50%;
   border: none;
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(245, 158, 11, 0.2);
   color: white;
   font-size: 0.9rem;
   cursor: pointer;
@@ -1316,7 +1335,7 @@ beforeUnmount() {
 }
 
 .tts-btn:hover {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(245, 158, 11, 0.4);
   transform: scale(1.1);
 }
 
@@ -1367,7 +1386,7 @@ beforeUnmount() {
 .message-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 1rem;
   padding: 0.75rem 1rem;
   color: white;
@@ -1381,8 +1400,8 @@ beforeUnmount() {
 
 .message-input:focus {
   outline: none;
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
   background: rgba(255, 255, 255, 0.12);
 }
 
@@ -1391,7 +1410,7 @@ beforeUnmount() {
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
   font-size: 1.1rem;
   cursor: pointer;
@@ -1400,7 +1419,7 @@ beforeUnmount() {
 
 .send-btn:hover:not(:disabled) {
   transform: scale(1.1);
-  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
 }
 
 .send-btn:disabled {
@@ -1416,7 +1435,7 @@ beforeUnmount() {
 
 .stt-btn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
   color: white;
@@ -1428,8 +1447,8 @@ beforeUnmount() {
 }
 
 .stt-btn:hover:not(:disabled) {
-  background: rgba(139, 92, 246, 0.2);
-  border-color: rgba(139, 92, 246, 0.5);
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
 }
 
 .stt-btn.recording {
@@ -1457,16 +1476,12 @@ beforeUnmount() {
   font-size: 0.85rem;
 }
 
-/* Traducción de señas */
+/* ============================================
+   TRADUCCIÓN DE SEÑAS - Tema naranja
+   ============================================ */
 .translation-content {
   position: relative;
   z-index: 2;
-}
-
-.translation-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
 }
 
 .camera-container {
@@ -1475,6 +1490,7 @@ beforeUnmount() {
   border-radius: 1rem;
   overflow: hidden;
   background: #000;
+  margin-bottom: 1rem;
 }
 
 .translation-video {
@@ -1510,12 +1526,12 @@ beforeUnmount() {
 }
 
 .status-badge.active {
-  background: rgba(16, 185, 129, 0.8);
+  background: rgba(245, 158, 11, 0.8);
   color: white;
 }
 
 .camera-controls {
-  margin-top: 1rem;
+  margin-bottom: 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1556,8 +1572,8 @@ beforeUnmount() {
 }
 
 .sign-tag {
-  background: rgba(139, 92, 246, 0.2);
-  border: 1px solid rgba(139, 92, 246, 0.4);
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
   font-size: 0.75rem;
@@ -1577,12 +1593,12 @@ beforeUnmount() {
 
 .results-container {
   flex: 1;
-  max-height: 350px;
+  max-height: 300px;
   overflow-y: auto;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 1rem;
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.1);
 }
 
 .results-container::-webkit-scrollbar {
@@ -1595,13 +1611,13 @@ beforeUnmount() {
 }
 
 .results-container::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.5);
+  background: rgba(245, 158, 11, 0.5);
   border-radius: 3px;
 }
 
 .translation-result {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 0.75rem;
   padding: 1rem;
   margin-bottom: 0.75rem;
@@ -1609,7 +1625,7 @@ beforeUnmount() {
 }
 
 .translation-result:hover {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(245, 158, 11, 0.15);
   transform: translateY(-2px);
 }
 
@@ -1627,8 +1643,8 @@ beforeUnmount() {
 }
 
 .result-confidence {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
   font-size: 0.75rem;
@@ -1646,106 +1662,9 @@ beforeUnmount() {
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* Participantes */
-.participants-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.participant-item {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 1rem;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all 0.3s ease;
-}
-
-.participant-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(139, 92, 246, 0.4);
-}
-
-.participant-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6, #e879f9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.avatar-text {
-  font-weight: 600;
-  font-size: 1.1rem;
-  color: white;
-}
-
-.participant-info {
-  flex: 1;
-}
-
-.participant-name {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.participant-badges {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-
-.badge {
-  font-size: 0.7rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.call-participant-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.call-participant-btn:hover:not(:disabled) {
-  transform: scale(1.1);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-}
-
-.call-participant-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.in-call-badge {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-  padding: 0.5rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* Secciones completas */
-.translation-section,
-.participants-section {
-  grid-column: 1 / -1;
-}
-
-/* Error modal */
+/* ============================================
+   ERROR MODAL
+   ============================================ */
 .error-modal {
   position: fixed;
   bottom: 2rem;
@@ -1804,14 +1723,16 @@ beforeUnmount() {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Responsive */
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 1200px) {
-  .room-grid {
+  .video-grid-duo {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
   }
   
-  .translation-grid {
+  .side-by-side-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
@@ -1845,11 +1766,7 @@ beforeUnmount() {
     text-align: center;
   }
   
-  .video-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .participants-grid {
+  .video-grid-duo {
     grid-template-columns: 1fr;
   }
   
